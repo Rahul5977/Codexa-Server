@@ -1,0 +1,28 @@
+import express from "express";
+import {
+  registerUser,
+  loginUser,
+  requestOTP,
+  verifyOTP,
+  forgotPassword,
+  resetPassword,
+  refreshToken,
+  logout,
+  getMe,
+} from "../controller/auth.controller.js";
+import { authenticate } from "../middleware/auth.middleware.js";
+
+const authRoutes = express.Router();
+
+authRoutes.post("/register", registerUser);
+authRoutes.post("/login", loginUser);
+authRoutes.post("/request-otp", requestOTP);
+authRoutes.post("/verify-otp", verifyOTP);
+authRoutes.post("/forgot-password", forgotPassword);
+authRoutes.post("/reset-password/:token", resetPassword);
+authRoutes.post("/refresh", refreshToken);
+
+authRoutes.post("/logout", authenticate, logout);
+authRoutes.get("/me", authenticate, getMe);
+
+export default authRoutes;

@@ -1,0 +1,33 @@
+{
+  "name": "utils-service",
+  "version": "1.0.0",
+  "description": "Codexa Utils Microservice - Email Consumer",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "NODE_ENV=development nodemon --exec tsx index.ts",
+    "start": "NODE_ENV=production tsx index.ts",
+    "build": "tsc"
+  },
+  "keywords": [
+    "microservice",
+    "email",
+    "kafka",
+    "consumer"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.0.9",
+    "@types/nodemailer": "^6.4.17",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "kafkajs": "^2.2.4",
+    "nodemailer": "^6.9.16"
+  }
+}
