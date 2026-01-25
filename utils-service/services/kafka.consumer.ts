@@ -94,28 +94,43 @@ class KafkaConsumer {
   }
 
   public async startSendMailConsumer(): Promise<void> {
-    try {
-      // Subscribe to notification events topic
-      await this.consumer.subscribe({
-        topic: KAFKA_TOPICS.NOTIFICATION_EVENTS,
-        fromBeginning: false,
-      });
+    const maxRetries = 5;
+    let retries = 0;
 
-      console.log(
-        `📥 Subscribed to topic: ${KAFKA_TOPICS.NOTIFICATION_EVENTS}`,
-      );
+    while (retries < maxRetries) {
+      try {
+        // Subscribe to notification events topic
+        await this.consumer.subscribe({
+          topic: KAFKA_TOPICS.NOTIFICATION_EVENTS,
+          fromBeginning: false,
+        });
 
-      // Start consuming messages
-      await this.consumer.run({
-        eachMessage: async (payload: EachMessagePayload) => {
-          await this.handleNotificationMessage(payload);
-        },
-      });
+        console.log(
+          `📥 Subscribed to topic: ${KAFKA_TOPICS.NOTIFICATION_EVENTS}`,
+        );
 
-      console.log("🎧 Mail consumer started and listening for messages...");
-    } catch (error) {
-      console.error("❌ Failed to start mail consumer:", error);
-      throw error;
+        // Start consuming messages
+        await this.consumer.run({
+          eachMessage: async (payload: EachMessagePayload) => {
+            await this.handleNotificationMessage(payload);
+          },
+        });
+
+        console.log("🎧 Mail consumer started and listening for messages...");
+        return;
+      } catch (error) {
+        retries++;
+        console.error(
+          `❌ Failed to start mail consumer (attempt ${retries}/${maxRetries}):`,
+          error,
+        );
+        if (retries < maxRetries) {
+          console.log(`⏳ Retrying in 3 seconds...`);
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+        } else {
+          throw error;
+        }
+      }
     }
   }
 

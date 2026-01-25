@@ -44,7 +44,6 @@ function formatZodErrors(error: ZodError): Record<string, string> {
  * @access  Public
  */
 export const registerUser = asyncHandler(async (req, res) => {
-  // Validate request body
   const parseResult = registerSchema.safeParse(req.body);
   if (!parseResult.success) {
     throw ApiError.badRequest(
@@ -54,8 +53,6 @@ export const registerUser = asyncHandler(async (req, res) => {
   }
 
   const { name, email, password, role } = parseResult.data;
-
-  // Check if user already exists
   const existingUser = await prisma.user.findUnique({
     where: { email },
   });
@@ -94,6 +91,11 @@ export const registerUser = asyncHandler(async (req, res) => {
   const otp = generateOtp();
   const expiresAt = storeOtp(email, otp, "VERIFY_EMAIL");
 
+  // Log OTP in development for testing
+  if (process.env.NODE_ENV === "development") {
+    console.log(`📧 [DEV] OTP for ${user.email}: ${otp}`);
+  }
+
   // Send Kafka message for email notification
   try {
     const notificationPayload: NotificationPayload = {
@@ -108,9 +110,13 @@ export const registerUser = asyncHandler(async (req, res) => {
     };
 
     await kafkaProducer.sendNotificationEvent(notificationPayload);
+    console.log(`📧 OTP Email notification sent to Kafka for ${user.email}`);
   } catch (error) {
     console.error("Failed to send Kafka message:", error);
-
+    // Log OTP in development for testing
+    if (process.env.NODE_ENV === "development") {
+      console.log(`📧 [DEV] OTP for ${user.email}: ${otp}`);
+    }
   }
 
   const response = ApiResponse.created(
@@ -173,7 +179,7 @@ export const loginUser = asyncHandler(async (req, res) => {
     data: { refreshToken: tokens.refreshToken },
   });
 
-  // Send login alert via Kafka (optional)
+  // Send login alert via Kafka
   try {
     const notificationPayload: NotificationPayload = {
       type: "LOGIN_ALERT",
@@ -266,12 +272,18 @@ export const requestOTP = asyncHandler(async (req, res) => {
     };
 
     await kafkaProducer.sendNotificationEvent(notificationPayload);
+    console.log(`📧 OTP notification sent to Kafka for ${user.email}`);
   } catch (error) {
     console.error("Failed to send OTP notification:", error);
+    // In development, log the OTP even if Kafka fails
+    console.log(`📧 [DEV] OTP for ${user.email}: ${otp}`);
     throw ApiError.serviceUnavailable(
       "Failed to send OTP. Please try again later.",
     );
   }
+
+  // Always log OTP in development for testing
+  console.log(`📧 [DEV] OTP for ${user.email}: ${otp}`);
 
   const response = ApiResponse.success(
     { expiresAt },
@@ -404,12 +416,20 @@ export const forgotPassword = asyncHandler(async (req, res) => {
     };
 
     await kafkaProducer.sendNotificationEvent(notificationPayload);
+    console.log(
+      `📧 Password reset OTP notification sent to Kafka for ${user.email}`,
+    );
   } catch (error) {
     console.error("Failed to send reset password OTP:", error);
+    // In development, log the OTP even if Kafka fails
+    console.log(`🔐 [DEV] Reset Password OTP for ${user.email}: ${otp}`);
     throw ApiError.serviceUnavailable(
       "Failed to send OTP. Please try again later.",
     );
   }
+
+  // Always log OTP in development for testing
+  console.log(`🔐 [DEV] Reset Password OTP for ${user.email}: ${otp}`);
 
   const response = ApiResponse.success(
     { expiresAt },
