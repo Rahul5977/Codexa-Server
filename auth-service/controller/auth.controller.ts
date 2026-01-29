@@ -345,22 +345,22 @@ export const loginUser = asyncHandler(async (req, res) => {
   });
 
   // Send login alert via Kafka
-  try {
-    const notificationPayload: NotificationPayload = {
-      type: "LOGIN_ALERT",
-      email: user.email,
-      data: {
-        userName: user.name,
-        ipAddress: req.ip || "Unknown",
-        userAgent: req.get("User-Agent") || "Unknown",
-      },
-      timestamp: new Date().toISOString(),
-    };
+  // try {
+  //   const notificationPayload: NotificationPayload = {
+  //     type: "LOGIN_ALERT",
+  //     email: user.email,
+  //     data: {
+  //       userName: user.name,
+  //       ipAddress: req.ip || "Unknown",
+  //       userAgent: req.get("User-Agent") || "Unknown",
+  //     },
+  //     timestamp: new Date().toISOString(),
+  //   };
 
-    await kafkaProducer.sendNotificationEvent(notificationPayload);
-  } catch (error) {
-    console.error("Failed to send login alert:", error);
-  }
+  //   await kafkaProducer.sendNotificationEvent(notificationPayload);
+  // } catch (error) {
+  //   console.error("Failed to send login alert:", error);
+  // }
 
   const response = ApiResponse.success(
     {
