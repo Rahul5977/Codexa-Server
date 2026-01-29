@@ -16,7 +16,7 @@ async function startServer(): Promise<void> {
     await kafkaProducer.connect();
 
     server = app.listen(PORT, () => {
-      console.log(` Auth Service running on port ${PORT}`);
+      console.log(` Problem Service running on port ${PORT}`);
       console.log(` Environment: ${NODE_ENV}`);
       console.log(` Health check: http://localhost:${PORT}/health`);
     });
