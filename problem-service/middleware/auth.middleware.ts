@@ -5,7 +5,6 @@ import {
   extractBearerToken,
   type DecodedToken,
 } from "../utils/jwt.js";
-import { prisma } from "../libs/prisma.js";
 
 // Extend Express Request type
 declare global {
@@ -27,25 +26,11 @@ export const authenticate = async (
 ): Promise<void> => {
   try {
     const token = extractBearerToken(req.headers.authorization);
-
     if (!token) {
       throw ApiError.unauthorized("Access token is required");
     }
-
-    // Verify token
+    // Verify token and attach user
     const decoded = verifyAccessToken(token);
-
-    // Optionally verify user still exists
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
-      select: { id: true, email: true, role: true },
-    });
-
-    if (!user) {
-      throw ApiError.unauthorized("User not found");
-    }
-
-    // Attach user to request
     req.user = decoded;
     next();
   } catch (error) {
