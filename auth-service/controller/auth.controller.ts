@@ -13,6 +13,8 @@ import {
   forgotPasswordSchema,
   resetPasswordSchema,
   refreshTokenSchema,
+  sendVerificationOtpSchema,
+  completeRegistrationSchema,
 } from "../validators/auth.validator.js";
 import {
   generateTokenPair,
@@ -37,6 +39,169 @@ function formatZodErrors(error: ZodError): Record<string, string> {
   }
   return errors;
 }
+
+/**
+ * @route   POST /api/auth/send-verification-otp
+ * @desc    Send OTP to email for registration verification (Step 1 of registration)
+ * @access  Public
+ */
+export const sendVerificationOTP = asyncHandler(async (req, res) => {
+  const parseResult = sendVerificationOtpSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    throw ApiError.badRequest(
+      "Validation failed",
+      formatZodErrors(parseResult.error),
+    );
+  }
+
+  const { email } = parseResult.data;
+
+  // Check if user already exists
+  const existingUser = await prisma.user.findUnique({
+    where: { email },
+  });
+
+  if (existingUser) {
+    throw ApiError.conflict("User with this email already exists");
+  }
+
+  // Generate OTP for email verification
+  const otp = generateOtp();
+  const expiresAt = storeOtp(email, otp, "VERIFY_EMAIL");
+
+  // Log OTP in development for testing
+  if (process.env.NODE_ENV === "development") {
+    console.log(`📧 [DEV] Registration OTP for ${email}: ${otp}`);
+  }
+
+  // Send Kafka message for email notification
+  try {
+    const notificationPayload: NotificationPayload = {
+      type: "VERIFY_EMAIL",
+      email: email,
+      data: {
+        otp,
+        userName: email.split("@")[0] || "User", // temporary name
+        expiresAt: expiresAt.toISOString(),
+      },
+      timestamp: new Date().toISOString(),
+    };
+
+    await kafkaProducer.sendNotificationEvent(notificationPayload);
+    console.log(`📧 OTP Email notification sent to Kafka for ${email}`);
+  } catch (error) {
+    console.error("Failed to send Kafka message:", error);
+    // Still log OTP in development
+    if (process.env.NODE_ENV === "development") {
+      console.log(`📧 [DEV] Registration OTP for ${email}: ${otp}`);
+    }
+  }
+
+  const response = ApiResponse.success(
+    { expiresAt },
+    "Verification OTP sent to your email. Please check your inbox.",
+  );
+
+  res.status(response.statusCode).json(response);
+});
+
+/**
+ * @route   POST /api/auth/complete-registration
+ * @desc    Complete user registration after OTP verification (Step 2 of registration)
+ * @access  Public
+ */
+export const completeRegistration = asyncHandler(async (req, res) => {
+  const parseResult = completeRegistrationSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    throw ApiError.badRequest(
+      "Validation failed",
+      formatZodErrors(parseResult.error),
+    );
+  }
+
+  const { name, email, password, otp, role } = parseResult.data;
+
+  // Verify OTP first
+  const otpResult = verifyOtpUtil(email, otp);
+  if (!otpResult.valid || otpResult.type !== "VERIFY_EMAIL") {
+    throw ApiError.badRequest(otpResult.message || "Invalid or expired OTP");
+  }
+
+  // Check if user already exists (double check)
+  const existingUser = await prisma.user.findUnique({
+    where: { email },
+  });
+
+  if (existingUser) {
+    throw ApiError.conflict("User with this email already exists");
+  }
+
+  // Hash password using Argon2
+  const hashedPassword = await argon2.hash(password, {
+    type: argon2.argon2id,
+    memoryCost: 65536,
+    timeCost: 3,
+    parallelism: 4,
+  });
+
+  // Create user in database with email already verified
+  const user = await prisma.user.create({
+    data: {
+      name,
+      email,
+      password: hashedPassword,
+      role,
+      emailVerified: true, // Mark as verified since OTP was confirmed
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      emailVerified: true,
+      createdAt: true,
+    },
+  });
+
+  // Send welcome email via Kafka
+  try {
+    const notificationPayload: NotificationPayload = {
+      type: "WELCOME_EMAIL",
+      email: user.email,
+      data: {
+        userName: user.name,
+      },
+      timestamp: new Date().toISOString(),
+    };
+
+    await kafkaProducer.sendNotificationEvent(notificationPayload);
+    console.log(`📧 Welcome email notification sent to Kafka for ${user.email}`);
+  } catch (error) {
+    console.error("Failed to send welcome email:", error);
+  }
+
+  // Generate tokens for automatic login after registration
+  const tokenPayload: TokenPayload = {
+    userId: user.id,
+    email: user.email,
+    role: user.role,
+  };
+
+  const tokens = generateTokenPair(tokenPayload);
+
+  // Store refresh token in database
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { refreshToken: tokens.refreshToken },
+  });
+
+  const response = ApiResponse.created(
+    { user, tokens },
+    "Registration completed successfully. Welcome to Codexa!",
+  );
+
+  res.status(response.statusCode).json(response);
+});
 
 /**
  * @route   POST /api/auth/register

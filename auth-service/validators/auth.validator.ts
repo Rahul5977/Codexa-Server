@@ -50,6 +50,31 @@ export const verifyOtpSchema = z.object({
 
 export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>;
 
+// Send Verification OTP Schema (for registration)
+export const sendVerificationOtpSchema = z.object({
+  email: emailSchema,
+});
+
+export type SendVerificationOtpInput = z.infer<typeof sendVerificationOtpSchema>;
+
+// Complete Registration Schema (after OTP verification)
+export const completeRegistrationSchema = z.object({
+  name: z
+    .string()
+    .min(2, "Name must be at least 2 characters")
+    .max(20, "Name must be less than 20 characters")
+    .trim(),
+  email: emailSchema,
+  password: passwordSchema,
+  otp: z
+    .string()
+    .length(6, "OTP must be 6 digits")
+    .regex(/^\d+$/, "OTP must contain only numbers"),
+  role: z.enum(["USER", "STUDENT", "TEACHER"]).optional().default("USER"),
+});
+
+export type CompleteRegistrationInput = z.infer<typeof completeRegistrationSchema>;
+
 // Forgot Password Schema
 export const forgotPasswordSchema = z.object({
   email: emailSchema,

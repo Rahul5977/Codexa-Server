@@ -1,10 +1,12 @@
 import express from "express";
+import cors from 'cors'
 
 const app = express();
 
 // Body parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cors())
 
 // Health check endpoint
 app.get("/health", (_req, res) => {

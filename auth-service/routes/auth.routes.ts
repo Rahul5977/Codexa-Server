@@ -9,12 +9,20 @@ import {
   refreshToken,
   logout,
   getMe,
+  sendVerificationOTP,
+  completeRegistration,
 } from "../controller/auth.controller.js";
 import { authenticate } from "../middleware/auth.middleware.js";
 
 const authRoutes = express.Router();
 
+// Two-step registration flow
+authRoutes.post("/send-verification-otp", sendVerificationOTP);
+authRoutes.post("/complete-registration", completeRegistration);
+
+// Legacy single-step registration (kept for backward compatibility)
 authRoutes.post("/register", registerUser);
+
 authRoutes.post("/login", loginUser);
 authRoutes.post("/request-otp", requestOTP);
 authRoutes.post("/verify-otp", verifyOTP);
