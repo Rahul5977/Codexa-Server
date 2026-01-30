@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  STUDENT
+  TEACHER
+  ADMIN
+}
+
+enum AccountStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  DELETED
+}
+
+model User {
+  id       String        @id @default(cuid())
+  name     String
+  email    String        @unique
+  password String
+  role     Role          @default(USER)
+  status   AccountStatus @default(ACTIVE)
+
+  image_url        String?
+  imageUrlPublicId String?
+  bio               String?
+
+  emailVerified Boolean @default(false)
+  refreshToken  String?
+
+  currentRating Float @default(0)
+  totalSolved   Int   @default(0)
+  easyCount     Int   @default(0)
+  mediumCount   Int   @default(0)
+  hardCount     Int   @default(0)
+
+  githubUrl   String?
+  linkedinUrl String?
+
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  // submissions      Submission[]
+  // playlists        Playlist[]
+
+  @@index([email])
+  @@index([role])
+  @@index([status])
+  @@map("users")
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+// type examples {
+//   input String
+//   output String
+//   explanation String?
+// }
+
+// type testcases {
+//   input String
+//   output String
+// }
+
+model Problem {
+  id       String        @id @default(cuid())
+  title    String
+  difficulty Difficulty
+  statement String
+  examples  Json[]
+  constraints String[]
+  tags     String[]
+  hints    String[]
+  companies String[]
+  testcases Json[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

@@ -57,7 +57,7 @@ export const sendVerificationOTP = asyncHandler(async (req, res) => {
   const { email } = parseResult.data;
 
   // Check if user already exists
-  const existingUser = await prisma.user.findUnique({
+  const existingUser = await prisma.users.findUnique({
     where: { email },
   });
 
@@ -128,7 +128,7 @@ export const completeRegistration = asyncHandler(async (req, res) => {
   }
 
   // Check if user already exists (double check)
-  const existingUser = await prisma.user.findUnique({
+  const existingUser = await prisma.users.findUnique({
     where: { email },
   });
 
@@ -145,13 +145,15 @@ export const completeRegistration = asyncHandler(async (req, res) => {
   });
 
   // Create user in database with email already verified
-  const user = await prisma.user.create({
+  const user = await prisma.users.create({
     data: {
+      id: crypto.randomUUID(),
       name,
       email,
       password: hashedPassword,
       role,
       emailVerified: true, // Mark as verified since OTP was confirmed
+      updatedAt: new Date(),
     },
     select: {
       id: true,
@@ -175,7 +177,9 @@ export const completeRegistration = asyncHandler(async (req, res) => {
     };
 
     await kafkaProducer.sendNotificationEvent(notificationPayload);
-    console.log(`📧 Welcome email notification sent to Kafka for ${user.email}`);
+    console.log(
+      `📧 Welcome email notification sent to Kafka for ${user.email}`,
+    );
   } catch (error) {
     console.error("Failed to send welcome email:", error);
   }
@@ -190,7 +194,7 @@ export const completeRegistration = asyncHandler(async (req, res) => {
   const tokens = generateTokenPair(tokenPayload);
 
   // Store refresh token in database
-  await prisma.user.update({
+  await prisma.users.update({
     where: { id: user.id },
     data: { refreshToken: tokens.refreshToken },
   });
@@ -218,7 +222,7 @@ export const registerUser = asyncHandler(async (req, res) => {
   }
 
   const { name, email, password, role } = parseResult.data;
-  const existingUser = await prisma.user.findUnique({
+  const existingUser = await prisma.users.findUnique({
     where: { email },
   });
 
@@ -235,12 +239,14 @@ export const registerUser = asyncHandler(async (req, res) => {
   });
 
   // Create user in database
-  const user = await prisma.user.create({
+  const user = await prisma.users.create({
     data: {
+      id: crypto.randomUUID(),
       name,
       email,
       password: hashedPassword,
       role,
+      updatedAt: new Date(),
     },
     select: {
       id: true,
@@ -249,6 +255,7 @@ export const registerUser = asyncHandler(async (req, res) => {
       role: true,
       emailVerified: true,
       createdAt: true,
+      updatedAt: true,
     },
   });
 
@@ -310,7 +317,7 @@ export const loginUser = asyncHandler(async (req, res) => {
   const { email, password } = parseResult.data;
 
   // Find user by email
-  const user = await prisma.user.findUnique({
+  const user = await prisma.users.findUnique({
     where: { email },
   });
 
@@ -339,7 +346,7 @@ export const loginUser = asyncHandler(async (req, res) => {
   const tokens = generateTokenPair(tokenPayload);
 
   // Store refresh token in database
-  await prisma.user.update({
+  await prisma.users.update({
     where: { id: user.id },
     data: { refreshToken: tokens.refreshToken },
   });
@@ -400,7 +407,7 @@ export const requestOTP = asyncHandler(async (req, res) => {
   const { email, type } = parseResult.data;
 
   // Find user
-  const user = await prisma.user.findUnique({
+  const user = await prisma.users.findUnique({
     where: { email },
     select: { id: true, name: true, email: true, emailVerified: true },
   });
@@ -484,7 +491,7 @@ export const verifyOTP = asyncHandler(async (req, res) => {
 
   // If OTP type is VERIFY_EMAIL, update user's emailVerified status
   if (result.type === "VERIFY_EMAIL") {
-    const user = await prisma.user.update({
+    const user = await prisma.users.update({
       where: { email },
       data: { emailVerified: true },
       select: { id: true, name: true, email: true },
@@ -513,7 +520,7 @@ export const verifyOTP = asyncHandler(async (req, res) => {
     resetToken = generateResetToken();
     const hashedToken = hashResetToken(resetToken);
 
-    await prisma.user.update({
+    await prisma.users.update({
       where: { email },
       data: { refreshToken: hashedToken }, // Temporarily store hashed reset token
     });
@@ -549,7 +556,7 @@ export const forgotPassword = asyncHandler(async (req, res) => {
   const { email } = parseResult.data;
 
   // Find user
-  const user = await prisma.user.findUnique({
+  const user = await prisma.users.findUnique({
     where: { email },
     select: { id: true, name: true, email: true },
   });
@@ -631,7 +638,7 @@ export const resetPassword = asyncHandler(async (req, res) => {
   const hashedToken = hashResetToken(token);
 
   // Find user with this reset token
-  const user = await prisma.user.findFirst({
+  const user = await prisma.users.findFirst({
     where: { refreshToken: hashedToken },
   });
 
@@ -648,7 +655,7 @@ export const resetPassword = asyncHandler(async (req, res) => {
   });
 
   // Update user's password and clear reset token
-  await prisma.user.update({
+  await prisma.users.update({
     where: { id: user.id },
     data: {
       password: hashedPassword,
@@ -690,7 +697,7 @@ export const refreshToken = asyncHandler(async (req, res) => {
   }
 
   // Find user and verify stored refresh token
-  const user = await prisma.user.findUnique({
+  const user = await prisma.users.findUnique({
     where: { id: decoded.userId },
   });
 
@@ -726,7 +733,7 @@ export const logout = asyncHandler(async (req, res) => {
 
   if (userId) {
     // Clear refresh token in database
-    await prisma.user.update({
+    await prisma.users.update({
       where: { id: userId },
       data: { refreshToken: null },
     });
@@ -748,7 +755,7 @@ export const getMe = asyncHandler(async (req, res) => {
     throw ApiError.unauthorized("Not authenticated");
   }
 
-  const user = await prisma.user.findUnique({
+  const user = await prisma.users.findUnique({
     where: { id: userId },
     select: {
       id: true,

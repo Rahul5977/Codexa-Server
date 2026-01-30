@@ -1,20 +1,16 @@
 {
-  "name": "auth",
+  "name": "db-service",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "NODE_ENV=development nodemon --exec tsx index.ts",
-    "start": "NODE_ENV=production tsx index.ts",
-    "build": "tsc"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "devDependencies": {
-    "@types/express": "^5.0.6",
-    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.1.0",
     "@types/pg": "^8.16.0",
     "prisma": "^7.3.0",
@@ -24,14 +20,7 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.3.0",
     "@prisma/client": "^7.3.0",
-    "@types/cors": "^2.8.19",
-    "argon2": "^0.44.0",
-    "cors": "^2.8.6",
     "dotenv": "^17.2.3",
-    "express": "^5.2.1",
-    "jsonwebtoken": "^9.0.3",
-    "kafkajs": "^2.2.4",
-    "pg": "^8.17.2",
-    "zod": "^4.3.5"
+    "pg": "^8.17.2"
   }
 }
