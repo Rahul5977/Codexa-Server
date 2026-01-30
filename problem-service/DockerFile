@@ -48,6 +48,7 @@ COPY --from=builder /app/db-service/prisma ./db-service/prisma
 # (CHANGE THIS for other services)
 COPY --from=builder /app/problem-service/dist ./problem-service/dist
 COPY --from=builder /app/problem-service/package.json ./problem-service/package.json
+COPY --from=builder /app/problem-service/node_modules ./problem-service/node_modules
 
 # 4. Start the App
 # (CHANGE THIS for other services)

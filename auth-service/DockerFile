@@ -48,6 +48,7 @@ COPY --from=builder /app/db-service/prisma ./db-service/prisma
 # (CHANGE THIS for other services)
 COPY --from=builder /app/auth-service/dist ./auth-service/dist
 COPY --from=builder /app/auth-service/package.json ./auth-service/package.json
+COPY --from=builder /app/auth-service/node_modules ./auth-service/node_modules
 
 # 4. Start the App
 # (CHANGE THIS for other services)

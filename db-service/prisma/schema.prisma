@@ -30,7 +30,7 @@ model User {
 
   image_url        String?
   imageUrlPublicId String?
-  bio               String?
+  bio              String?
 
   emailVerified Boolean @default(false)
   refreshToken  String?
@@ -76,16 +76,16 @@ enum Difficulty {
 // }
 
 model Problem {
-  id       String        @id @default(cuid())
-  title    String
-  difficulty Difficulty
-  statement String
-  examples  Json[]
+  id          String     @id @default(cuid())
+  title       String
+  difficulty  Difficulty
+  statement   String
+  examples    Json[]
   constraints String[]
-  tags     String[]
-  hints    String[]
-  companies String[]
-  testcases Json[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  tags        String[]
+  hints       String[]
+  companies   String[]
+  testcases   Json[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 }
