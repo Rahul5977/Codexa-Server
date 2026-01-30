@@ -1,5 +1,17 @@
 version: "3.8"
 services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: codexa-postgres
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: codexa
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
   kafka:
     image: apache/kafka:3.7.0
     container_name: codexa-kafka
@@ -18,3 +30,45 @@ services:
       - KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1
       - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0
       - CLUSTER_ID=MkU3OEVBNTcwNTJENDM2Qk
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: auth-service/DockerFile
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres:5432/codexa
+      - NODE_ENV=development
+    depends_on:
+      - postgres
+      - kafka
+
+  problem-service:
+    build:
+      context: .
+      dockerfile: problem-service/DockerFile
+    ports:
+      - "3001:3001"
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres:5432/codexa
+      - NODE_ENV=development
+    depends_on:
+      - postgres
+      - kafka
+
+  utils-service:
+    build:
+      context: .
+      dockerfile: utils-service/DockerFile
+    ports:
+      - "3003:3003"
+    environment:
+      - DATABASE_URL=postgresql://user:password@postgres:5432/codexa
+      - NODE_ENV=development
+    depends_on:
+      - postgres
+      - kafka
+
+volumes:
+  postgres_data:

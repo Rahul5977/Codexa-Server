@@ -1,5 +1,5 @@
 {
-  "name": "auth",
+  "name": "problem-service",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -22,6 +22,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@codexa/db": "*",
     "@prisma/adapter-pg": "^7.3.0",
     "@prisma/client": "^7.3.0",
     "@types/cors": "^2.8.19",

@@ -8,7 +8,6 @@ export default defineConfig({
   migrations: {
     path: "prisma/migrations",
   },
-  datasource: {
-    url: process.env["DATABASE_URL"],
-  },
+  // datasource.url will be read from DATABASE_URL environment variable
+  // No need to explicitly set it here to avoid TypeScript strict type issues
 });

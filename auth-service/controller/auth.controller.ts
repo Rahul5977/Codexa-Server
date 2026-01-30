@@ -3,7 +3,7 @@ import { ZodError } from "zod";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/api-error.js";
 import { ApiResponse } from "../utils/api-response.js";
-import { prisma } from "../libs/prisma.js";
+import { prisma } from "@codexa/db"
 import { kafkaProducer, type NotificationPayload } from "../libs/kafka.js";
 import {
   registerSchema,
@@ -57,7 +57,7 @@ export const sendVerificationOTP = asyncHandler(async (req, res) => {
   const { email } = parseResult.data;
 
   // Check if user already exists
-  const existingUser = await prisma.users.findUnique({
+  const existingUser = await prisma.user.findUnique({
     where: { email },
   });
 
@@ -128,7 +128,7 @@ export const completeRegistration = asyncHandler(async (req, res) => {
   }
 
   // Check if user already exists (double check)
-  const existingUser = await prisma.users.findUnique({
+  const existingUser = await prisma.user.findUnique({
     where: { email },
   });
 
@@ -145,7 +145,7 @@ export const completeRegistration = asyncHandler(async (req, res) => {
   });
 
   // Create user in database with email already verified
-  const user = await prisma.users.create({
+  const user = await prisma.user.create({
     data: {
       id: crypto.randomUUID(),
       name,
@@ -194,7 +194,7 @@ export const completeRegistration = asyncHandler(async (req, res) => {
   const tokens = generateTokenPair(tokenPayload);
 
   // Store refresh token in database
-  await prisma.users.update({
+  await prisma.user.update({
     where: { id: user.id },
     data: { refreshToken: tokens.refreshToken },
   });
@@ -222,7 +222,7 @@ export const registerUser = asyncHandler(async (req, res) => {
   }
 
   const { name, email, password, role } = parseResult.data;
-  const existingUser = await prisma.users.findUnique({
+  const existingUser = await prisma.user.findUnique({
     where: { email },
   });
 
@@ -239,7 +239,7 @@ export const registerUser = asyncHandler(async (req, res) => {
   });
 
   // Create user in database
-  const user = await prisma.users.create({
+  const user = await prisma.user.create({
     data: {
       id: crypto.randomUUID(),
       name,
@@ -317,7 +317,7 @@ export const loginUser = asyncHandler(async (req, res) => {
   const { email, password } = parseResult.data;
 
   // Find user by email
-  const user = await prisma.users.findUnique({
+  const user = await prisma.user.findUnique({
     where: { email },
   });
 
@@ -346,7 +346,7 @@ export const loginUser = asyncHandler(async (req, res) => {
   const tokens = generateTokenPair(tokenPayload);
 
   // Store refresh token in database
-  await prisma.users.update({
+  await prisma.user.update({
     where: { id: user.id },
     data: { refreshToken: tokens.refreshToken },
   });
@@ -407,7 +407,7 @@ export const requestOTP = asyncHandler(async (req, res) => {
   const { email, type } = parseResult.data;
 
   // Find user
-  const user = await prisma.users.findUnique({
+  const user = await prisma.user.findUnique({
     where: { email },
     select: { id: true, name: true, email: true, emailVerified: true },
   });
@@ -491,7 +491,7 @@ export const verifyOTP = asyncHandler(async (req, res) => {
 
   // If OTP type is VERIFY_EMAIL, update user's emailVerified status
   if (result.type === "VERIFY_EMAIL") {
-    const user = await prisma.users.update({
+    const user = await prisma.user.update({
       where: { email },
       data: { emailVerified: true },
       select: { id: true, name: true, email: true },
@@ -520,7 +520,7 @@ export const verifyOTP = asyncHandler(async (req, res) => {
     resetToken = generateResetToken();
     const hashedToken = hashResetToken(resetToken);
 
-    await prisma.users.update({
+    await prisma.user.update({
       where: { email },
       data: { refreshToken: hashedToken }, // Temporarily store hashed reset token
     });
@@ -556,7 +556,7 @@ export const forgotPassword = asyncHandler(async (req, res) => {
   const { email } = parseResult.data;
 
   // Find user
-  const user = await prisma.users.findUnique({
+  const user = await prisma.user.findUnique({
     where: { email },
     select: { id: true, name: true, email: true },
   });
@@ -638,7 +638,7 @@ export const resetPassword = asyncHandler(async (req, res) => {
   const hashedToken = hashResetToken(token);
 
   // Find user with this reset token
-  const user = await prisma.users.findFirst({
+  const user = await prisma.user.findFirst({
     where: { refreshToken: hashedToken },
   });
 
@@ -655,7 +655,7 @@ export const resetPassword = asyncHandler(async (req, res) => {
   });
 
   // Update user's password and clear reset token
-  await prisma.users.update({
+  await prisma.user.update({
     where: { id: user.id },
     data: {
       password: hashedPassword,
@@ -697,7 +697,7 @@ export const refreshToken = asyncHandler(async (req, res) => {
   }
 
   // Find user and verify stored refresh token
-  const user = await prisma.users.findUnique({
+  const user = await prisma.user.findUnique({
     where: { id: decoded.userId },
   });
 
@@ -733,7 +733,7 @@ export const logout = asyncHandler(async (req, res) => {
 
   if (userId) {
     // Clear refresh token in database
-    await prisma.users.update({
+    await prisma.user.update({
       where: { id: userId },
       data: { refreshToken: null },
     });
@@ -755,7 +755,7 @@ export const getMe = asyncHandler(async (req, res) => {
     throw ApiError.unauthorized("Not authenticated");
   }
 
-  const user = await prisma.users.findUnique({
+  const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
       id: true,

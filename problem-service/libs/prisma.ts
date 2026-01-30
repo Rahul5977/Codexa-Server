@@ -1,50 +1,18 @@
-import "dotenv/config";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../generated/prisma/client.js";
+import { prisma } from "@codexa/db";
 
-const connectionString = process.env.DATABASE_URL;
+export { prisma };
 
-if (!connectionString) {
-  throw new Error("DATABASE_URL environment variable is not set");
-}
-
-const adapter = new PrismaPg({ connectionString });
-
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
-};
-
-const createPrismaClient = (): PrismaClient => {
-  return new PrismaClient({
-    adapter,
-    log:
-      process.env.NODE_ENV === "development"
-        ? ["query", "error", "warn"]
-        : ["error"],
-  });
-};
-
-export const prisma: PrismaClient =
-  globalForPrisma.prisma ?? createPrismaClient();
-
-  if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-}
-
-export async function checkDBConnection(): Promise<boolean> {
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    return true;
-  } catch {
-    return false;
-  }
-}
 export async function disconnectDB(): Promise<void> {
+  await prisma.$disconnect();
+  console.log("✅ Database disconnected");
+}
+
+export async function connectDB(): Promise<void> {
   try {
-    await prisma.$disconnect();
-    console.log("✅ Database disconnected successfully");
+    await prisma.$connect();
+    console.log("✅ Database connected successfully");
   } catch (error) {
-    console.error("❌ Error disconnecting from database:", error);
+    console.error("❌ Database connection failed:", error);
     throw error;
   }
 }

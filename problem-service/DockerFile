@@ -1,0 +1,55 @@
+# ==========================================
+# STAGE 1: The Builder (Compiles TypeScript)
+# ==========================================
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+# 1. Copy Root Configs
+# We need the root package.json to understand workspaces
+COPY package.json package-lock.json ./
+
+# 2. Copy the Shared Library (db-service)
+# We copy it to /app/db-service inside the container
+COPY db-service ./db-service
+
+# 3. Copy the Service we are building
+# (CHANGE THIS for other services -> e.g., COPY problem-service ./problem-service)
+COPY problem-service ./problem-service
+
+# 4. Install Dependencies
+# This runs from Root and links @codexa/db to problem-service
+RUN npm ci
+
+# 5. Build the Shared Library (Generate Prisma Client)
+WORKDIR /app/db-service
+RUN npx prisma generate
+RUN npm run build
+
+# 6. Build the Problem Service
+WORKDIR /app/problem-service
+RUN npm run build
+
+# ==========================================
+# STAGE 2: The Runner (Production Image)
+# ==========================================
+FROM node:20-alpine AS runner
+WORKDIR /app
+
+# 1. Copy necessary runtime files
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
+
+# 2. Copy the built DB Library
+COPY --from=builder /app/db-service/dist ./db-service/dist
+COPY --from=builder /app/db-service/package.json ./db-service/package.json
+COPY --from=builder /app/db-service/prisma ./db-service/prisma
+
+# 3. Copy the built Problem Service
+# (CHANGE THIS for other services)
+COPY --from=builder /app/problem-service/dist ./problem-service/dist
+COPY --from=builder /app/problem-service/package.json ./problem-service/package.json
+
+# 4. Start the App
+# (CHANGE THIS for other services)
+WORKDIR /app/problem-service
+CMD ["node", "dist/index.js"]
