@@ -19,9 +19,19 @@ enum AccountStatus {
   SUSPENDED
   DELETED
 }
+enum SubmissionStatus {
+  PENDING
+  PROCESSING
+  ACCEPTED
+  WRONG_ANSWER
+  ERROR
+  TIME_LIMIT_EXCEEDED
+  MEMORY_LIMIT_EXCEEDED
+  COMPILATION_ERROR
+}
 
 model User {
-  id       String        @id @default(cuid())
+  id       String        @id @default(uuid())
   name     String
   email    String        @unique
   password String
@@ -49,7 +59,7 @@ model User {
   updatedAt   DateTime  @updatedAt
 
   // Relations
-  // submissions      Submission[]
+  submissions      Submission[]
   // playlists        Playlist[]
 
   @@index([email])
@@ -76,7 +86,7 @@ enum Difficulty {
 // }
 
 model Problem {
-  id          String     @id @default(cuid())
+  id          String     @id @default(uuid())
   title       String
   difficulty  Difficulty
   statement   String
@@ -88,4 +98,32 @@ model Problem {
   testcases   Json[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
+
+  // Relations
+  submissions Submission[]
+}
+model Submission {
+  id          String           @id @default(uuid())
+  userId      String
+  problemId   String
+  code        String  @db.Text
+  languageId    Int
+  //status
+  status      SubmissionStatus @default(PENDING)
+  //Result from judge0
+  stdout      String?         @db.Text
+  stderr      String?         @db.Text
+  time String?
+  memory      Int?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  // Relations
+  user    User     @relation(fields: [userId], references: [id])
+  problem Problem  @relation(fields: [problemId], references: [id])
+
+  @@index([userId])
+  @@index([problemId])
+  @@index([status])
+  @@map("submissions")
 }

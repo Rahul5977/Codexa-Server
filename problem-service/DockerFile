@@ -2,6 +2,11 @@
 # STAGE 1: The Builder (Compiles TypeScript)
 # ==========================================
 FROM node:20-alpine AS builder
+
+# Accept DATABASE_URL as build arg
+ARG DATABASE_URL
+ENV DATABASE_URL=${DATABASE_URL}
+
 WORKDIR /app
 
 # 1. Copy Root Configs

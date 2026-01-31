@@ -1,15 +1,15 @@
 services:
-  postgres:
-    image: postgres:15-alpine
-    container_name: codexa-postgres
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: codexa
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: codexa-postgres
+  #   environment:
+  #     POSTGRES_USER: user
+  #     POSTGRES_PASSWORD: password
+  #     POSTGRES_DB: codexa
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
 
   kafka:
     image: apache/kafka:3.7.0
@@ -34,42 +34,45 @@ services:
     build:
       context: .
       dockerfile: auth-service/DockerFile
+      args:
+        - DATABASE_URL=${DATABASE_URL}
     ports:
       - "3000:3000"
     environment:
-      - DATABASE_URL=postgresql://user:password@postgres:5432/codexa
+      - DATABASE_URL=${DATABASE_URL}
       - NODE_ENV=development
       - KAFKA_BROKERS=kafka:9092
     depends_on:
-      - postgres
       - kafka
 
   problem-service:
     build:
       context: .
       dockerfile: problem-service/DockerFile
+      args:
+        - DATABASE_URL=${DATABASE_URL}
     ports:
       - "3001:3001"
     environment:
-      - DATABASE_URL=postgresql://user:password@postgres:5432/codexa
+      - DATABASE_URL=${DATABASE_URL}
       - NODE_ENV=development
       - KAFKA_BROKERS=kafka:9092
     depends_on:
-      - postgres
       - kafka
 
   utils-service:
     build:
       context: .
       dockerfile: utils-service/DockerFile
+      args:
+        - DATABASE_URL=${DATABASE_URL}
     ports:
       - "3003:3003"
     environment:
-      - DATABASE_URL=postgresql://user:password@postgres:5432/codexa
+      - DATABASE_URL=${DATABASE_URL}
       - NODE_ENV=development
       - KAFKA_BROKERS=kafka:9092
     depends_on:
-      - postgres
       - kafka
 
 volumes:
