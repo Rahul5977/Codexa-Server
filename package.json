@@ -6,7 +6,8 @@
     "utils-service",
     "problem-service",
     "code-service",
-    "db-service"
+    "db-service",
+    "ai-service"
   ],
   "scripts": {
     "dev": "concurrently \"npm start --workspace=auth-service\" \"npm start --workspace=code-service\""
