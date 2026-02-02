@@ -29,6 +29,8 @@ import {
   generateResetToken,
   hashResetToken,
 } from "../utils/otp.js";
+import getBuffer from "../utils/buffer.js"
+import axios from "axios"
 
 // Helper to format Zod errors
 function formatZodErrors(error: ZodError): Record<string, string> {
@@ -781,3 +783,106 @@ export const getMe = asyncHandler(async (req, res) => {
   );
   res.status(response.statusCode).json(response);
 });
+
+/**
+ * @route   PUT /api/auth/profile
+ * @desc    Update current user profile
+ * @access  Private
+ */
+export const updateProfile = asyncHandler(async (req, res) => {
+  const userId = (req as any).user?.userId;
+
+  if (!userId) {
+    throw ApiError.unauthorized("Not authenticated");
+  }
+
+  const { name, bio } = (req as any).body;
+
+  const updatedUser = await prisma.users.update({
+    where: { id: userId },
+    data: {
+      name,
+      bio,
+      updatedAt: new Date(),
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      emailVerified: true,
+      bio: true,
+      currentRating: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  const response = ApiResponse.success(
+    { user: updatedUser },
+    "User profile updated successfully",
+  );
+  res.status(response.statusCode).json(response);
+});
+
+/**
+ * @route   PUT /api/auth/profile-picture
+ * @desc    Update current user profile picture
+ * @access  Private
+ */
+export const updateProfilePicture = asyncHandler(
+  async (req, res) => {
+    const user = (req as any).user;
+
+    if (!user) {
+      throw ApiError.unauthorized("Unauthorized");
+    }
+
+    const file = (req as any).file;
+
+    if (!file) {
+      throw ApiError.badRequest("No file uploaded");
+    }
+
+    const oldPublicId = user.profile_pic_public_id;
+
+    const fileBuffer = getBuffer(file);
+
+    if (!fileBuffer || !fileBuffer.content) {
+      throw ApiError.badRequest("Invalid file buffer");
+    }
+
+    const { data: uploadResult } = await axios.post(
+      `${process.env.FILE_UPLOAD_SERVICE_URL}/api/utils/upload`,
+      { buffer: fileBuffer.content, public_id: oldPublicId },
+    );
+
+    const updatedUser = await prisma.users.update({
+      where: { id: user.userId },
+      data: {
+        image_url: uploadResult.url,
+        profile_pic_public_id: uploadResult.public_id,
+        updatedAt: new Date(),
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        emailVerified: true,
+        image_url: true,
+        bio: true,
+        currentRating: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    const response = ApiResponse.success(
+      { user: updatedUser },
+      "Profile picture updated successfully",
+    );
+
+    res.status(response.statusCode).json(response);
+  },
+)

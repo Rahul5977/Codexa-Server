@@ -11,6 +11,8 @@ import {
   getMe,
   sendVerificationOTP,
   completeRegistration,
+  updateProfile,
+  updateProfilePicture,
 } from "../controller/auth.controller.js";
 import { authenticate } from "../middleware/auth.middleware.js";
 
@@ -32,5 +34,7 @@ authRoutes.post("/refresh", refreshToken);
 
 authRoutes.post("/logout", authenticate, logout);
 authRoutes.get("/me", authenticate, getMe);
+authRoutes.put("/profile", authenticate, updateProfile);
+authRoutes.put("/profile-picture", authenticate, updateProfilePicture);
 
 export default authRoutes;
