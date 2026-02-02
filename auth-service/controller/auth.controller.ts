@@ -798,7 +798,7 @@ export const updateProfile = asyncHandler(async (req, res) => {
 
   const { name, bio } = (req as any).body;
 
-  const updatedUser = await prisma.users.update({
+  const updatedUser = await prisma.user.update({
     where: { id: userId },
     data: {
       name,
@@ -857,7 +857,7 @@ export const updateProfilePicture = asyncHandler(
       { buffer: fileBuffer.content, public_id: oldPublicId },
     );
 
-    const updatedUser = await prisma.users.update({
+    const updatedUser = await prisma.user.update({
       where: { id: user.userId },
       data: {
         image_url: uploadResult.url,

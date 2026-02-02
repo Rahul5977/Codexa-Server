@@ -45,10 +45,10 @@ services:
     depends_on:
       - kafka
 
-  problem-service:
+  utils-service:
     build:
       context: .
-      dockerfile: problem-service/DockerFile
+      dockerfile: utils-service/DockerFile
       args:
         - DATABASE_URL=${DATABASE_URL}
     ports:
@@ -59,21 +59,21 @@ services:
       - KAFKA_BROKERS=kafka:9092
     depends_on:
       - kafka
-
-  utils-service:
+  problem-service:
     build:
       context: .
-      dockerfile: utils-service/DockerFile
+      dockerfile: problem-service/DockerFile
       args:
         - DATABASE_URL=${DATABASE_URL}
     ports:
-      - "3003:3003"
+      - "3002:3002"
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - NODE_ENV=development
       - KAFKA_BROKERS=kafka:9092
     depends_on:
       - kafka
+
 
 volumes:
   postgres_data:
