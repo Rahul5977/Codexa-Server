@@ -844,7 +844,7 @@ export const updateProfilePicture = asyncHandler(
       throw ApiError.badRequest("No file uploaded");
     }
 
-    const oldPublicId = user.profile_pic_public_id;
+    const oldPublicId = user.imageUrlPublicId;
 
     const fileBuffer = getBuffer(file);
 
@@ -861,7 +861,7 @@ export const updateProfilePicture = asyncHandler(
       where: { id: user.userId },
       data: {
         image_url: uploadResult.url,
-        profile_pic_public_id: uploadResult.public_id,
+        imageUrlPublicId: uploadResult.public_id,
         updatedAt: new Date(),
       },
       select: {
@@ -871,6 +871,7 @@ export const updateProfilePicture = asyncHandler(
         role: true,
         emailVerified: true,
         image_url: true,
+        imageUrlPublicId: true,
         bio: true,
         currentRating: true,
         createdAt: true,
