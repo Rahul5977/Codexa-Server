@@ -9,8 +9,22 @@ const app = express();
 // CORS configuration - must be before other middleware
 app.use(cors())
 
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+// Skip body parsing for multipart/form-data routes
+app.use((req, res, next) => {
+  const contentType = req.headers['content-type'] || '';
+  if (contentType.includes('multipart/form-data')) {
+    return next();
+  }
+  express.json({ limit: "10mb" })(req, res, next);
+});
+
+app.use((req, res, next) => {
+  const contentType = req.headers['content-type'] || '';
+  if (contentType.includes('multipart/form-data')) {
+    return next();
+  }
+  express.urlencoded({ extended: true, limit: "10mb" })(req, res, next);
+});
 
 app.set("trust proxy", 1);
 

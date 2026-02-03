@@ -15,6 +15,7 @@ import {
   updateProfilePicture,
 } from "../controller/auth.controller.js";
 import { authenticate } from "../middleware/auth.middleware.js";
+import uploadFile from "../middleware/multer.js"
 
 const authRoutes = express.Router();
 
@@ -32,9 +33,9 @@ authRoutes.post("/forgot-password", forgotPassword);
 authRoutes.post("/reset-password/:token", resetPassword);
 authRoutes.post("/refresh", refreshToken);
 
-authRoutes.post("/logout", authenticate, logout);
+authRoutes.post("/logout", authenticate, logout); 
 authRoutes.get("/me", authenticate, getMe);
 authRoutes.put("/profile", authenticate, updateProfile);
-authRoutes.put("/profile-picture", authenticate, updateProfilePicture);
+authRoutes.put("/profile-picture", authenticate, uploadFile, updateProfilePicture);
 
 export default authRoutes;
