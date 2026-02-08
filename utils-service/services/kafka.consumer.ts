@@ -37,6 +37,9 @@ class KafkaConsumer {
     const brokers = process.env.KAFKA_BROKERS?.split(",") || ["localhost:9092"];
     const groupId = process.env.KAFKA_GROUP_ID || "utils-service-group";
 
+    console.log("🔧 Kafka Brokers from env:", process.env.KAFKA_BROKERS);
+    console.log("🔧 Kafka Brokers configured:", brokers);
+
     this.kafka = new Kafka({
       clientId: "utils-service",
       brokers,

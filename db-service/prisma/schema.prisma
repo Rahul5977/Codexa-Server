@@ -19,6 +19,7 @@ enum AccountStatus {
   SUSPENDED
   DELETED
 }
+
 enum SubmissionStatus {
   PENDING
   PROCESSING
@@ -59,8 +60,9 @@ model User {
   updatedAt   DateTime  @updatedAt
 
   // Relations
-  submissions      Submission[]
-  // playlists        Playlist[]
+  submissions   Submission[]
+  userAnalytics UserAnalytics?
+  topicAttempts TopicAttempt[]
 
   @@index([email])
   @@index([role])
@@ -73,17 +75,6 @@ enum Difficulty {
   MEDIUM
   HARD
 }
-
-// type examples {
-//   input String
-//   output String
-//   explanation String?
-// }
-
-// type testcases {
-//   input String
-//   output String
-// }
 
 model Problem {
   id          String     @id @default(uuid())
@@ -100,30 +91,121 @@ model Problem {
   updatedAt   DateTime   @updatedAt
 
   // Relations
-  submissions Submission[]
+  submissions      Submission[]
+  problemAnalytics ProblemAnalytics?
 }
+
 model Submission {
-  id          String           @id @default(uuid())
-  userId      String
-  problemId   String
-  code        String  @db.Text
-  languageId    Int
-  //status
-  status      SubmissionStatus @default(PENDING)
-  //Result from judge0
-  stdout      String?         @db.Text
-  stderr      String?         @db.Text
-  time String?
-  memory      Int?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id         String  @id @default(uuid())
+  userId     String
+  problemId  String
+  code       String  @db.Text
+  languageId Int
+  language   String? // e.g. "python", "cpp", "java"
+
+  // Status
+  status SubmissionStatus @default(PENDING)
+
+  // Result from judge0
+  stdout String? @db.Text
+  stderr String? @db.Text
+  time   String? // execution time from judge0
+  memory Int? // memory in KB
+
+  // Analytics fields
+  executionTimeMs Float? // parsed numeric execution time in ms
+  attemptNumber   Int    @default(1) // which attempt is this for this user+problem
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  user    User     @relation(fields: [userId], references: [id])
-  problem Problem  @relation(fields: [problemId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+  problem Problem @relation(fields: [problemId], references: [id])
 
   @@index([userId])
   @@index([problemId])
   @@index([status])
+  @@index([userId, problemId])
   @@map("submissions")
+}
+
+model UserAnalytics {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+
+  // Basic Stats
+  totalSolved    Int @default(0)
+  totalAttempted Int @default(0)
+  easySolved     Int @default(0)
+  mediumSolved   Int @default(0)
+  hardSolved     Int @default(0)
+
+  // Streak Stats
+  streakCurrent Int       @default(0)
+  streakMax     Int       @default(0)
+  lastActive    DateTime?
+
+  // Performance (JSON for flexibility)
+  // e.g. { "Graph": { "solved": 5, "attempted": 8, "strength": 0.72 }, ... }
+  topicStrength Json?
+
+  // Activity Heatmap (Year-Month-Day mapped to count)
+  // e.g. { "2024-01-01": 5, "2024-01-02": 1 }
+  activityLog Json?
+
+  // Efficiency: average execution time percentile per language
+  // e.g. { "python": { "avgTime": 120, "percentile": 65 }, ... }
+  efficiencyStats Json?
+
+  // Language distribution
+  // e.g. { "python": 40, "cpp": 20, "java": 10 }
+  languageStats Json?
+
+  updatedAt DateTime @updatedAt
+
+  @@map("user_analytics")
+}
+
+// Granular per-topic tracking for radar chart
+model TopicAttempt {
+  id        String @id @default(uuid())
+  userId    String
+  user      User   @relation(fields: [userId], references: [id])
+  topic     String
+  solved    Int    @default(0)
+  attempted Int    @default(0)
+  // Difficulty-weighted strength: solved/attempted * difficultyWeight
+  strength  Float  @default(0)
+
+  // Track per-difficulty within topic
+  easySolved   Int @default(0)
+  mediumSolved Int @default(0)
+  hardSolved   Int @default(0)
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, topic])
+  @@index([userId])
+  @@map("topic_attempts")
+}
+
+// Track global difficulty stats per problem
+model ProblemAnalytics {
+  id            String  @id @default(uuid())
+  problemId     String  @unique
+  problem       Problem @relation(fields: [problemId], references: [id])
+  totalAttempts Int     @default(0)
+  totalSolved   Int     @default(0)
+  avgTimeMs     Float? // Average execution time in ms
+  avgMemory     Int? // Average memory in KB
+
+  // Per-language avg execution time
+  // e.g. { "python": { "avgTime": 150, "count": 30 }, "cpp": { "avgTime": 20, "count": 50 } }
+  languageAvgTime Json?
+
+  updatedAt DateTime @updatedAt
+
+  @@map("problem_analytics")
 }

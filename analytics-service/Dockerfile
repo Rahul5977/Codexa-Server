@@ -1,0 +1,1 @@
+FROM nodesource/nsolid:20-alpine AS builder
