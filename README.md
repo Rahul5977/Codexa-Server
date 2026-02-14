@@ -101,6 +101,7 @@ The platform uses PostgreSQL with the following main entities:
 
 5. **Start infrastructure services**
    ```bash
+   # Start PostgreSQL and Kafka services defined in docker-compose.yml
    docker-compose up postgres kafka -d
    ```
 
@@ -188,16 +189,15 @@ This project uses **npm workspaces** for monorepo management:
 
 ```
 Codexa-Server/
-├── auth-service/
-├── utils-service/
-├── problem-service/
-├── code-service/
-├── ai-service/
-├── analytics-service/
-├── db-service/
-├── repo-service/
-├── docker-compose.yml
-└── package.json (root)
+├── auth-service/          # Authentication & authorization service
+├── utils-service/         # Email & file upload utilities
+├── problem-service/       # Problem management service
+├── code-service/          # Code execution service
+├── ai-service/            # AI-powered features service
+├── analytics-service/     # Analytics & tracking service
+├── db-service/            # Shared database package
+├── docker-compose.yml     # Docker orchestration
+└── package.json           # Root workspace config
 ```
 
 ### Scripts
