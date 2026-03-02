@@ -98,6 +98,10 @@ class KafkaProducer {
     key?: string,
   ): Promise<void> {
     if (!this.isConnected) {
+      if (process.env.NODE_ENV === "development") {
+        console.warn(`⚠️  Skipping Kafka message to ${topic} (Kafka not connected)`);
+        return;
+      }
       throw new Error("Kafka producer is not connected");
     }
 

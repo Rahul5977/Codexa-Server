@@ -14,9 +14,18 @@ let isShuttingDown = false;
 
 async function startServer(): Promise<void> {
   try {
-    // Connect Kafka producer
+    // Connect Kafka producer (optional in development)
     console.log("Connecting to Kafka...");
-    await kafkaProducer.connect();
+    try {
+      await kafkaProducer.connect();
+    } catch (kafkaError) {
+      if (NODE_ENV === "development") {
+        console.warn("⚠️  Kafka connection failed (continuing without Kafka in development mode)");
+        console.warn("   Start Kafka with: docker-compose up -d kafka");
+      } else {
+        throw kafkaError;
+      }
+    }
 
     server = app.listen(PORT, () => {
       console.log(` Auth Service running on port ${PORT}`);

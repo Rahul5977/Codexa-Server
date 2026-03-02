@@ -3,6 +3,7 @@ import { CreateSubmissionSchema, RunCodeSchema } from "../dtos/submission.dto";
 import { submissionQueue } from "../queues/submission.queue";
 import { prisma } from "@codexa/db";
 import { executeBatch } from "../services/judge0.services";
+import { isRedisConnected } from "../config/redis.js";
 
 export const createSubmission = async (req: Request, res: Response) => {
   try {
@@ -27,13 +28,31 @@ export const createSubmission = async (req: Request, res: Response) => {
     });
 
     // 4. Add to BullMQ (The Heavy Lifting Queue)
-    await submissionQueue.add("process-code", {
-      submissionId: submission.id,
-      userId: validatedData.userId,
-      problemId: validatedData.problemId,
-      code: validatedData.code,
-      languageId: validatedData.languageId,
-    });
+    if (isRedisConnected()) {
+      await submissionQueue.add("process-code", {
+        submissionId: submission.id,
+        userId: validatedData.userId,
+        problemId: validatedData.problemId,
+        code: validatedData.code,
+        languageId: validatedData.languageId,
+      });
+    } else {
+      // In development without Redis, update status to indicate queue unavailable
+      if (process.env.NODE_ENV === "development") {
+        await prisma.submission.update({
+          where: { id: submission.id },
+          data: { 
+            status: "ERROR",
+            stderr: "Job queue unavailable (Redis not connected)"
+          },
+        });
+        return res.status(503).json({
+          message: "Job queue unavailable - Redis not connected",
+          submissionId: submission.id,
+        });
+      }
+      throw new Error("Redis not connected");
+    }
     // 5. Return Success immediately (202 Accepted)
     return res.status(202).json({
       message: "Submission queued successfully",
