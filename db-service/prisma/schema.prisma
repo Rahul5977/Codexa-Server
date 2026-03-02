@@ -64,6 +64,10 @@ model User {
   userAnalytics UserAnalytics?
   topicAttempts TopicAttempt[]
 
+  // Classroom relations
+  studentEnrollments ClassroomEnrollment[] @relation("ClassroomStudent")
+  ownedClassrooms    Classroom[]           @relation("ClassroomTeacher")
+
   @@index([email])
   @@index([role])
   @@index([status])
@@ -208,4 +212,42 @@ model ProblemAnalytics {
   updatedAt DateTime @updatedAt
 
   @@map("problem_analytics")
+}
+
+// Classroom/Course Models
+model Classroom {
+  id        String @id @default(uuid())
+  name      String
+  code      String @unique // 6-character random course code
+  teacherId String
+  teacher   User   @relation("ClassroomTeacher", fields: [teacherId], references: [id])
+
+  description String?
+  imageUrl    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  enrollments ClassroomEnrollment[]
+
+  @@index([teacherId])
+  @@index([code])
+  @@map("classrooms")
+}
+
+model ClassroomEnrollment {
+  id          String @id @default(uuid())
+  classroomId String
+  studentId   String
+
+  classroom Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+  student   User      @relation("ClassroomStudent", fields: [studentId], references: [id])
+
+  joinedAt DateTime @default(now())
+
+  @@unique([classroomId, studentId]) // A student can only enroll once per classroom
+  @@index([classroomId])
+  @@index([studentId])
+  @@map("classroom_enrollments")
 }

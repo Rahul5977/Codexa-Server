@@ -12,5 +12,9 @@
   ],
   "scripts": {
     "dev": "concurrently \"npm start --workspace=auth-service\" \"npm start --workspace=code-service\""
+  },
+  "dependencies": {
+    "@prisma/client": "^7.3.0",
+    "prisma": "^7.3.0"
   }
 }
