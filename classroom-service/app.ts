@@ -1,6 +1,7 @@
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import classroomRoutes from "./routes/classroom.routes.js";
+import assignmentRoutes from "./routes/assignment.routes.js";
 import { ApiError } from "./utils/api-error.js";
 import cors from "cors";
 
@@ -27,6 +28,7 @@ app.get("/health", (req, res) => {
 
 // API routes
 app.use("/api/classroom", classroomRoutes);
+app.use("/api/classroom", assignmentRoutes);
 
 // 404 handler
 app.use((req, res) => {

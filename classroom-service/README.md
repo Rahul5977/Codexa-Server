@@ -1,6 +1,6 @@
 # Classroom Service
 
-A microservice for managing classrooms, courses, and student enrollments in the Codexa platform. This service allows teachers to create classrooms and students to join them using unique codes.
+A microservice for managing classrooms, courses, student enrollments, assignments, and exams in the Codexa platform. This service allows teachers to create classrooms, manage assignments/exams with problems, and students to submit collective solutions.
 
 ## Features
 
@@ -10,6 +10,11 @@ A microservice for managing classrooms, courses, and student enrollments in the 
 - **Email Notifications**: Sends classroom codes via email (via Kafka)
 - **Student Management**: View all enrolled students in a classroom
 - **Classroom CRUD**: Full classroom management (create, read, update, delete)
+- **Problem Management**: Teachers can create new problems or use existing ones
+- **Assignment System**: Create assignments with multiple problems and deadlines
+- **Exam System**: Create exams with duration limits and deadlines
+- **Collective Submissions**: Students submit solution packets for all problems
+- **Submission Review**: Teachers can view all student submissions
 
 ## API Endpoints
 
@@ -17,7 +22,7 @@ A microservice for managing classrooms, courses, and student enrollments in the 
 
 All endpoints require JWT authentication via `Authorization: Bearer <token>` header.
 
-### Endpoints
+### Classroom Management
 
 #### Create Classroom
 
@@ -86,6 +91,189 @@ DELETE /api/classroom/:classroomId
 
 **Access**: Teacher of the classroom
 
+### Problem Management
+
+#### Create Problem
+
+```
+POST /api/classroom/problem
+```
+
+**Access**: Teachers only
+**Body**:
+
+```json
+{
+  "title": "Two Sum",
+  "difficulty": "EASY",
+  "statement": "Given an array of integers...",
+  "examples": [
+    {
+      "input": "[2,7,11,15], target = 9",
+      "output": "[0,1]",
+      "explanation": "Because nums[0] + nums[1] == 9"
+    }
+  ],
+  "constraints": ["2 <= nums.length <= 10^4"],
+  "tags": ["Array", "Hash Table"],
+  "hints": ["Use a hash map"],
+  "companies": ["Amazon", "Google"],
+  "testcases": [
+    {
+      "input": "[2,7,11,15]\n9",
+      "output": "[0,1]"
+    }
+  ]
+}
+```
+
+#### Get Problems
+
+```
+GET /api/classroom/problems
+```
+
+**Access**: Teachers only
+**Query Params**: `page`, `limit`, `search`, `difficulty`, `tags`
+
+### Assignment Management
+
+#### Create Assignment
+
+```
+POST /api/classroom/:classroomId/assignment
+```
+
+**Access**: Teacher of the classroom
+**Body**:
+
+```json
+{
+  "title": "Weekly Assignment 1",
+  "subtitle": "Arrays and Strings",
+  "description": "Complete all problems by the deadline",
+  "deadline": "2026-03-15T23:59:59Z",
+  "problems": [
+    {
+      "problemId": "problem-uuid",
+      "order": 1
+    },
+    {
+      "problemId": "another-problem-uuid",
+      "order": 2
+    }
+  ]
+}
+```
+
+#### Get Classroom Assignments
+
+```
+GET /api/classroom/:classroomId/assignments
+```
+
+**Access**: Teacher or enrolled students
+
+#### Get Assignment Details
+
+```
+GET /api/classroom/assignment/:assignmentId
+```
+
+**Access**: Teacher or enrolled students
+
+#### Submit Assignment
+
+```
+POST /api/classroom/assignment/:assignmentId/submit
+```
+
+**Access**: Enrolled students only
+**Body**:
+
+```json
+{
+  "solutions": {
+    "problem-uuid-1": {
+      "code": "def solution(nums, target): ...",
+      "language": "python"
+    },
+    "problem-uuid-2": {
+      "code": "class Solution { public int[] twoSum... }",
+      "language": "java"
+    }
+  }
+}
+```
+
+#### Get Assignment Submissions
+
+```
+GET /api/classroom/assignment/:assignmentId/submissions
+```
+
+**Access**: Teacher of the classroom
+
+### Exam Management
+
+#### Create Exam
+
+```
+POST /api/classroom/:classroomId/exam
+```
+
+**Access**: Teacher of the classroom
+**Body**:
+
+```json
+{
+  "title": "Midterm Exam",
+  "subtitle": "Data Structures",
+  "description": "90 minute exam covering arrays, linked lists, and stacks",
+  "deadline": "2026-03-15T23:59:59Z",
+  "duration": 90,
+  "problems": [
+    {
+      "problemId": "problem-uuid",
+      "order": 1
+    }
+  ]
+}
+```
+
+#### Get Classroom Exams
+
+```
+GET /api/classroom/:classroomId/exams
+```
+
+**Access**: Teacher or enrolled students
+
+#### Get Exam Details
+
+```
+GET /api/classroom/exam/:examId
+```
+
+**Access**: Teacher or enrolled students
+
+#### Submit Exam
+
+```
+POST /api/classroom/exam/:examId/submit
+```
+
+**Access**: Enrolled students only
+**Body**: Same format as assignment submission
+
+#### Get Exam Submissions
+
+```
+GET /api/classroom/exam/:examId/submissions
+```
+
+**Access**: Teacher of the classroom
+
 ## Setup Instructions
 
 ### 1. Environment Variables
@@ -116,13 +304,19 @@ Before running the service, apply the database migration:
 
 ```bash
 cd ../db-service
-npx prisma migrate dev --name add_classroom_models
+npx prisma migrate dev --name add_assignment_exam_models
 ```
 
 This adds the following models:
 
 - `Classroom`: Stores classroom information and codes
 - `ClassroomEnrollment`: Junction table for student enrollments
+- `Assignment`: Stores assignment details with deadlines
+- `AssignmentProblem`: Junction table for assignment-problem relationships
+- `AssignmentSubmission`: Student submissions for assignments
+- `Exam`: Stores exam details with deadlines and duration
+- `ExamProblem`: Junction table for exam-problem relationships
+- `ExamSubmission`: Student submissions for exams
 
 ### 3. Install Dependencies
 
@@ -164,6 +358,61 @@ npm start
 - `studentId`: Reference to User (student)
 - `joinedAt`: Enrollment timestamp
 - Unique constraint on (classroomId, studentId)
+
+### Assignment
+
+- `id`: Unique identifier
+- `title`: Assignment title
+- `subtitle`: Optional subtitle
+- `description`: Optional detailed description
+- `deadline`: Submission deadline
+- `classroomId`: Reference to Classroom
+- `createdAt`, `updatedAt`: Timestamps
+
+### AssignmentProblem
+
+- `id`: Unique identifier
+- `assignmentId`: Reference to Assignment
+- `problemId`: Reference to Problem
+- `order`: Order of problem in assignment (1, 2, 3...)
+- Unique constraints on (assignmentId, problemId) and (assignmentId, order)
+
+### AssignmentSubmission
+
+- `id`: Unique identifier
+- `assignmentId`: Reference to Assignment
+- `studentId`: Reference to User (student)
+- `solutions`: JSON object containing code solutions for each problem
+- `submittedAt`, `updatedAt`: Timestamps
+- Unique constraint on (assignmentId, studentId)
+
+### Exam
+
+- `id`: Unique identifier
+- `title`: Exam title
+- `subtitle`: Optional subtitle
+- `description`: Optional detailed description
+- `deadline`: Submission deadline
+- `duration`: Optional duration in minutes
+- `classroomId`: Reference to Classroom
+- `createdAt`, `updatedAt`: Timestamps
+
+### ExamProblem
+
+- `id`: Unique identifier
+- `examId`: Reference to Exam
+- `problemId`: Reference to Problem
+- `order`: Order of problem in exam (1, 2, 3...)
+- Unique constraints on (examId, problemId) and (examId, order)
+
+### ExamSubmission
+
+- `id`: Unique identifier
+- `examId`: Reference to Exam
+- `studentId`: Reference to User (student)
+- `solutions`: JSON object containing code solutions for each problem
+- `submittedAt`, `updatedAt`: Timestamps
+- Unique constraint on (examId, studentId)
 
 ## Dependencies
 

@@ -68,10 +68,9 @@ model User {
   studentEnrollments ClassroomEnrollment[] @relation("ClassroomStudent")
   ownedClassrooms    Classroom[]           @relation("ClassroomTeacher")
 
-  @@index([email])
-  @@index([role])
-  @@index([status])
-  @@map("users")
+  // Assignment/Exam submissions
+  assignmentSubmissions AssignmentSubmission[]
+  examSubmissions       ExamSubmission[]
 }
 
 enum Difficulty {
@@ -95,8 +94,10 @@ model Problem {
   updatedAt   DateTime   @updatedAt
 
   // Relations
-  submissions      Submission[]
-  problemAnalytics ProblemAnalytics?
+  submissions        Submission[]
+  problemAnalytics   ProblemAnalytics?
+  assignmentProblems AssignmentProblem[]
+  examProblems       ExamProblem[]
 }
 
 model Submission {
@@ -230,6 +231,8 @@ model Classroom {
 
   // Relations
   enrollments ClassroomEnrollment[]
+  assignments Assignment[]
+  exams       Exam[]
 
   @@index([teacherId])
   @@index([code])
@@ -250,4 +253,122 @@ model ClassroomEnrollment {
   @@index([classroomId])
   @@index([studentId])
   @@map("classroom_enrollments")
+}
+
+// Assignment and Exam Models
+model Assignment {
+  id          String   @id @default(uuid())
+  title       String
+  subtitle    String?
+  description String?
+  deadline    DateTime
+
+  classroomId String
+  classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  problems    AssignmentProblem[]
+  submissions AssignmentSubmission[]
+
+  @@index([classroomId])
+  @@index([deadline])
+  @@map("assignments")
+}
+
+model AssignmentProblem {
+  id           String @id @default(uuid())
+  assignmentId String
+  problemId    String
+  order        Int // Order of problem in the assignment (1, 2, 3, etc.)
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  problem    Problem    @relation(fields: [problemId], references: [id])
+
+  @@unique([assignmentId, problemId]) // A problem can only be added once per assignment
+  @@unique([assignmentId, order]) // Each order position is unique within assignment
+  @@index([assignmentId])
+  @@map("assignment_problems")
+}
+
+model AssignmentSubmission {
+  id           String @id @default(uuid())
+  assignmentId String
+  studentId    String
+
+  // JSON containing solutions for each problem
+  // Structure: { "problemId1": { "code": "...", "language": "python" }, ... }
+  solutions Json
+
+  submittedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student    User       @relation(fields: [studentId], references: [id])
+
+  @@unique([assignmentId, studentId]) // A student can only submit once per assignment
+  @@index([assignmentId])
+  @@index([studentId])
+  @@map("assignment_submissions")
+}
+
+model Exam {
+  id          String   @id @default(uuid())
+  title       String
+  subtitle    String?
+  description String?
+  deadline    DateTime
+  duration    Int? // Duration in minutes (optional)
+
+  classroomId String
+  classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  problems    ExamProblem[]
+  submissions ExamSubmission[]
+
+  @@index([classroomId])
+  @@index([deadline])
+  @@map("exams")
+}
+
+model ExamProblem {
+  id        String @id @default(uuid())
+  examId    String
+  problemId String
+  order     Int // Order of problem in the exam (1, 2, 3, etc.)
+
+  exam    Exam    @relation(fields: [examId], references: [id], onDelete: Cascade)
+  problem Problem @relation(fields: [problemId], references: [id])
+
+  @@unique([examId, problemId]) // A problem can only be added once per exam
+  @@unique([examId, order]) // Each order position is unique within exam
+  @@index([examId])
+  @@map("exam_problems")
+}
+
+model ExamSubmission {
+  id        String @id @default(uuid())
+  examId    String
+  studentId String
+
+  // JSON containing solutions for each problem
+  // Structure: { "problemId1": { "code": "...", "language": "python" }, ... }
+  solutions Json
+
+  submittedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  exam    Exam @relation(fields: [examId], references: [id], onDelete: Cascade)
+  student User @relation(fields: [studentId], references: [id])
+
+  @@unique([examId, studentId]) // A student can only submit once per exam
+  @@index([examId])
+  @@index([studentId])
+  @@map("exam_submissions")
 }
