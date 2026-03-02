@@ -140,9 +140,10 @@ export const getAllSubmissions = async (req: Request, res: Response) => {
 // Dry Run: Executes code against custom input immediately.
 // Does NOT save to database.
 export const runCode = async (req: Request, res: Response) => {
-  //1. validate schema
-  const validatedData = RunCodeSchema.parse(req.body);
   try {
+    //1. validate schema
+    const validatedData = RunCodeSchema.parse(req.body);
+    
     //2. create payload for judge0
     //treated as batch of 1
     const payload = [
@@ -168,10 +169,11 @@ export const runCode = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     //Zod error
-    if (error.name == "ZodError") {
+    if (error.name === "ZodError") {
       return res.status(400).json({ message: error.errors[0].message });
     }
-    console.error("Error running code:", error);
-    return res.status(500).json({ message: "Internal server error" });
+    console.error("Error running code:", error.message || error);
+    console.error("Full error:", error);
+    return res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };

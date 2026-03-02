@@ -2,12 +2,13 @@ import express from "express";
 import dotenv from "dotenv";
 import submissionRoutes from "./routes/submission.routes";
 import { connectRedis, isRedisConnected } from "./config/redis.js";
+import cors from 'cors'
 
 dotenv.config();
 
 const app = express();
 app.use(express.json());
-
+app.use(cors())
 // Routes
 app.use("/submissions", submissionRoutes);
 
