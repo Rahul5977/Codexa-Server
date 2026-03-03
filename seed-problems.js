@@ -65,187 +65,261 @@ const problems = [
         output: [2, 4],
       },
     ],
+    // Function metadata for code execution
+    functionName: "twoSum",
+    parameters: [
+      { name: "nums", type: "int[]" },
+      { name: "target", type: "int" }
+    ],
+    returnType: "int[]",
+    codeStubs: {
+      python: "class Solution:\n    def twoSum(self, nums: List[int], target: int) -> List[int]:\n        ",
+      java: "class Solution {\n    public int[] twoSum(int[] nums, int target) {\n        \n    }\n}",
+      cpp: "class Solution {\npublic:\n    vector<int> twoSum(vector<int>& nums, int target) {\n        \n    }\n};",
+      javascript: "/**\n * @param {number[]} nums\n * @param {number} target\n * @return {number[]}\n */\nvar twoSum = function(nums, target) {\n    \n};"
+    }
   },
   {
-    title: "Best Time to Buy and Sell Stock",
+    title: "Valid Parentheses",
     difficulty: "EASY",
     statement:
-      "You are given an array `prices` where `prices[i]` is the price of a given stock on the `i`th day. You want to maximize your profit by choosing a single day to buy one stock and choosing a different day in the future to sell that stock. Return the maximum profit you can achieve from this transaction. If you cannot achieve any profit, return `0`.",
+      "Given a string `s` containing just the characters `'('`, `')'`, `'{'`, `'}'`, `'['` and `']'`, determine if the input string is valid. An input string is valid if: 1) Open brackets must be closed by the same type of brackets. 2) Open brackets must be closed in the correct order. 3) Every close bracket has a corresponding open bracket of the same type.",
     examples: [
       {
-        input: "prices = [7,1,5,3,6,4]",
-        output: "5",
-        explanation:
-          "Buy on day 2 (price = 1) and sell on day 5 (price = 6), profit = 6-1 = 5. Note that buying on day 2 and selling on day 1 is not allowed because you must buy before you sell.",
-      },
-      {
-        input: "prices = [7,6,4,3,1]",
-        output: "0",
-        explanation:
-          "In this case, no transactions are done and the max profit = 0.",
-      },
-    ],
-    constraints: ["1 <= prices.length <= 10^5", "0 <= prices[i] <= 10^4"],
-    tags: ["Array", "Dynamic Programming"],
-    hints: [
-      "Think about how you would track the minimum price seen so far.",
-      "At each step, calculate the profit if you were to sell at the current price.",
-    ],
-    companies: ["Amazon", "Microsoft", "Bloomberg", "Facebook", "Apple"],
-    testcases: [
-      {
-        input: { prices: [7, 1, 5, 3, 6, 4] },
-        output: 5,
-      },
-      {
-        input: { prices: [7, 6, 4, 3, 1] },
-        output: 0,
-      },
-      {
-        input: { prices: [2, 4, 1] },
-        output: 2,
-      },
-      {
-        input: { prices: [3, 2, 6, 5, 0, 3] },
-        output: 4,
-      },
-    ],
-  },
-  {
-    title: "Contains Duplicate",
-    difficulty: "EASY",
-    statement:
-      "Given an integer array `nums`, return `true` if any value appears at least twice in the array, and return `false` if every element is distinct.",
-    examples: [
-      {
-        input: "nums = [1,2,3,1]",
+        input: 's = "()"',
         output: "true",
-        explanation: "The element 1 appears at index 0 and 3.",
+        explanation: "The string contains valid parentheses.",
       },
       {
-        input: "nums = [1,2,3,4]",
+        input: 's = "()[]{}"',
+        output: "true",
+        explanation: "All brackets are properly closed in correct order.",
+      },
+      {
+        input: 's = "(]"',
         output: "false",
-        explanation: "All elements are distinct.",
-      },
-      {
-        input: "nums = [1,1,1,3,3,4,3,2,4,2]",
-        output: "true",
-        explanation: "Multiple elements appear more than once.",
+        explanation: "The brackets are not of the same type.",
       },
     ],
-    constraints: ["1 <= nums.length <= 10^5", "-10^9 <= nums[i] <= 10^9"],
-    tags: ["Array", "Hash Table", "Sorting"],
+    constraints: ["1 <= s.length <= 10^4", "s consists of parentheses only '()[]{}'."],
+    tags: ["String", "Stack"],
     hints: [
-      "Think about using a Set data structure.",
-      "Can you solve it in O(n) time complexity?",
+      "Use a stack data structure to keep track of opening brackets.",
+      "When you encounter a closing bracket, check if it matches the most recent opening bracket.",
+      "The string is valid only if the stack is empty at the end.",
     ],
-    companies: ["Amazon", "Apple", "Adobe", "Yahoo"],
+    companies: ["Google", "Amazon", "Microsoft", "Facebook", "Bloomberg"],
     testcases: [
       {
-        input: { nums: [1, 2, 3, 1] },
+        input: { s: "()" },
         output: true,
       },
       {
-        input: { nums: [1, 2, 3, 4] },
+        input: { s: "()[]{}" },
+        output: true,
+      },
+      {
+        input: { s: "(]" },
         output: false,
       },
       {
-        input: { nums: [1, 1, 1, 3, 3, 4, 3, 2, 4, 2] },
+        input: { s: "([)]" },
+        output: false,
+      },
+      {
+        input: { s: "{[]}" },
         output: true,
       },
     ],
+    // Function metadata
+    functionName: "isValid",
+    parameters: [
+      { name: "s", type: "string" }
+    ],
+    returnType: "boolean",
+    codeStubs: {
+      python: "class Solution:\n    def isValid(self, s: str) -> bool:\n        ",
+      java: "class Solution {\n    public boolean isValid(String s) {\n        \n    }\n}",
+      cpp: "class Solution {\npublic:\n    bool isValid(string s) {\n        \n    }\n};",
+      javascript: "/**\n * @param {string} s\n * @return {boolean}\n */\nvar isValid = function(s) {\n    \n};"
+    }
   },
   {
-    title: "Product of Array Except Self",
-    difficulty: "MEDIUM",
+    title: "Reverse Linked List",
+    difficulty: "EASY",
     statement:
-      "Given an integer array `nums`, return an array `answer` such that `answer[i]` is equal to the product of all the elements of `nums` except `nums[i]`. The product of any prefix or suffix of `nums` is guaranteed to fit in a 32-bit integer. You must write an algorithm that runs in O(n) time and without using the division operation.",
+      "Given the `head` of a singly linked list, reverse the list, and return the reversed list. A linked list can be reversed either iteratively or recursively.",
     examples: [
       {
-        input: "nums = [1,2,3,4]",
-        output: "[24,12,8,6]",
-        explanation:
-          "answer[0] = 2*3*4 = 24, answer[1] = 1*3*4 = 12, answer[2] = 1*2*4 = 8, answer[3] = 1*2*3 = 6",
+        input: "head = [1,2,3,4,5]",
+        output: "[5,4,3,2,1]",
+        explanation: "The list is reversed.",
       },
       {
-        input: "nums = [-1,1,0,-3,3]",
-        output: "[0,0,9,0,0]",
-        explanation: "The product of all elements except 0 results in 0.",
+        input: "head = [1,2]",
+        output: "[2,1]",
+        explanation: "The list with two nodes is reversed.",
+      },
+      {
+        input: "head = []",
+        output: "[]",
+        explanation: "Empty list remains empty.",
       },
     ],
     constraints: [
-      "2 <= nums.length <= 10^5",
-      "-30 <= nums[i] <= 30",
-      "The product of any prefix or suffix of nums is guaranteed to fit in a 32-bit integer.",
+      "The number of nodes in the list is in the range [0, 5000].",
+      "-5000 <= Node.val <= 5000",
     ],
-    tags: ["Array", "Prefix Sum"],
+    tags: ["Linked List", "Recursion"],
     hints: [
-      "Think about how you can compute the product of all elements to the left and right of each index.",
-      "Can you do it without using division and in O(1) extra space (excluding the output array)?",
+      "Think about changing the next pointers of each node.",
+      "You'll need to keep track of the previous node as you iterate.",
+      "For recursion, think about what the base case would be.",
     ],
-    companies: ["Amazon", "Microsoft", "Facebook", "Apple", "Lyft"],
+    companies: ["Amazon", "Microsoft", "Apple", "Facebook", "Adobe"],
     testcases: [
       {
-        input: { nums: [1, 2, 3, 4] },
-        output: [24, 12, 8, 6],
+        input: { head: [1, 2, 3, 4, 5] },
+        output: [5, 4, 3, 2, 1],
       },
       {
-        input: { nums: [-1, 1, 0, -3, 3] },
-        output: [0, 0, 9, 0, 0],
+        input: { head: [1, 2] },
+        output: [2, 1],
       },
       {
-        input: { nums: [2, 3] },
-        output: [3, 2],
+        input: { head: [] },
+        output: [],
+      },
+      {
+        input: { head: [1] },
+        output: [1],
       },
     ],
+    // Function metadata
+    functionName: "reverseList",
+    parameters: [
+      { name: "head", type: "ListNode" }
+    ],
+    returnType: "ListNode",
+    codeStubs: {
+      python: "# Definition for singly-linked list.\n# class ListNode:\n#     def __init__(self, val=0, next=None):\n#         self.val = val\n#         self.next = next\nclass Solution:\n    def reverseList(self, head: Optional[ListNode]) -> Optional[ListNode]:\n        ",
+      java: "/**\n * Definition for singly-linked list.\n * public class ListNode {\n *     int val;\n *     ListNode next;\n *     ListNode() {}\n *     ListNode(int val) { this.val = val; }\n *     ListNode(int val, ListNode next) { this.val = val; this.next = next; }\n * }\n */\nclass Solution {\n    public ListNode reverseList(ListNode head) {\n        \n    }\n}",
+      cpp: "/**\n * Definition for singly-linked list.\n * struct ListNode {\n *     int val;\n *     ListNode *next;\n *     ListNode() : val(0), next(nullptr) {}\n *     ListNode(int x) : val(x), next(nullptr) {}\n *     ListNode(int x, ListNode *next) : val(x), next(next) {}\n * };\n */\nclass Solution {\npublic:\n    ListNode* reverseList(ListNode* head) {\n        \n    }\n};"
+    }
   },
   {
-    title: "Maximum Subarray",
-    difficulty: "MEDIUM",
+    title: "Maximum Depth of Binary Tree",
+    difficulty: "EASY",
     statement:
-      "Given an integer array `nums`, find the subarray with the largest sum, and return its sum. A subarray is a contiguous non-empty sequence of elements within an array.",
+      "Given the `root` of a binary tree, return its maximum depth. A binary tree's maximum depth is the number of nodes along the longest path from the root node down to the farthest leaf node.",
     examples: [
       {
-        input: "nums = [-2,1,-3,4,-1,2,1,-5,4]",
-        output: "6",
-        explanation: "The subarray [4,-1,2,1] has the largest sum 6.",
+        input: "root = [3,9,20,null,null,15,7]",
+        output: "3",
+        explanation: "The longest path is 3 -> 20 -> 15 (or 7), which has depth 3.",
       },
       {
-        input: "nums = [1]",
-        output: "1",
-        explanation: "The subarray [1] has the largest sum 1.",
-      },
-      {
-        input: "nums = [5,4,-1,7,8]",
-        output: "23",
-        explanation: "The subarray [5,4,-1,7,8] has the largest sum 23.",
+        input: "root = [1,null,2]",
+        output: "2",
+        explanation: "The path is 1 -> 2, which has depth 2.",
       },
     ],
-    constraints: ["1 <= nums.length <= 10^5", "-10^4 <= nums[i] <= 10^4"],
-    tags: ["Array", "Dynamic Programming", "Divide and Conquer"],
+    constraints: [
+      "The number of nodes in the tree is in the range [0, 10^4].",
+      "-100 <= Node.val <= 100",
+    ],
+    tags: ["Tree", "Depth-First Search", "Breadth-First Search", "Binary Tree"],
     hints: [
-      "Think about Kadane's Algorithm.",
-      "At each position, you need to decide whether to extend the existing subarray or start a new one.",
+      "Think recursively: the depth of a tree is 1 + max(depth of left subtree, depth of right subtree).",
+      "You can also solve this using BFS (level-order traversal).",
+      "What is the base case? An empty tree has depth 0.",
     ],
-    companies: ["Amazon", "Microsoft", "LinkedIn", "Bloomberg", "Adobe"],
+    companies: ["Amazon", "Microsoft", "LinkedIn", "Apple", "Google"],
     testcases: [
       {
-        input: { nums: [-2, 1, -3, 4, -1, 2, 1, -5, 4] },
-        output: 6,
+        input: { root: [3, 9, 20, null, null, 15, 7] },
+        output: 3,
       },
       {
-        input: { nums: [1] },
+        input: { root: [1, null, 2] },
+        output: 2,
+      },
+      {
+        input: { root: [] },
+        output: 0,
+      },
+      {
+        input: { root: [1] },
         output: 1,
       },
+    ],
+    // Function metadata
+    functionName: "maxDepth",
+    parameters: [
+      { name: "root", type: "TreeNode" }
+    ],
+    returnType: "int",
+    codeStubs: {
+      python: "# Definition for a binary tree node.\n# class TreeNode:\n#     def __init__(self, val=0, left=None, right=None):\n#         self.val = val\n#         self.left = left\n#         self.right = right\nclass Solution:\n    def maxDepth(self, root: Optional[TreeNode]) -> int:\n        ",
+      java: "/**\n * Definition for a binary tree node.\n * public class TreeNode {\n *     int val;\n *     TreeNode left;\n *     TreeNode right;\n *     TreeNode() {}\n *     TreeNode(int val) { this.val = val; }\n *     TreeNode(int val, TreeNode left, TreeNode right) {\n *         this.val = val;\n *         this.left = left;\n *         this.right = right;\n *     }\n * }\n */\nclass Solution {\n    public int maxDepth(TreeNode root) {\n        \n    }\n}",
+      cpp: "/**\n * Definition for a binary tree node.\n * struct TreeNode {\n *     int val;\n *     TreeNode *left;\n *     TreeNode *right;\n *     TreeNode() : val(0), left(nullptr), right(nullptr) {}\n *     TreeNode(int x) : val(x), left(nullptr), right(nullptr) {}\n *     TreeNode(int x, TreeNode *left, TreeNode *right) : val(x), left(left), right(right) {}\n * };\n */\nclass Solution {\npublic:\n    int maxDepth(TreeNode* root) {\n        \n    }\n};"
+    }
+  },
+  {
+    title: "Climbing Stairs",
+    difficulty: "EASY",
+    statement:
+      "You are climbing a staircase. It takes `n` steps to reach the top. Each time you can either climb 1 or 2 steps. In how many distinct ways can you climb to the top?",
+    examples: [
       {
-        input: { nums: [5, 4, -1, 7, 8] },
-        output: 23,
+        input: "n = 2",
+        output: "2",
+        explanation: "There are two ways to climb to the top: 1) 1 step + 1 step, 2) 2 steps.",
       },
       {
-        input: { nums: [-1, -2, -3] },
-        output: -1,
+        input: "n = 3",
+        output: "3",
+        explanation: "There are three ways: 1) 1 step + 1 step + 1 step, 2) 1 step + 2 steps, 3) 2 steps + 1 step.",
       },
     ],
+    constraints: ["1 <= n <= 45"],
+    tags: ["Dynamic Programming", "Math", "Memoization"],
+    hints: [
+      "To reach step n, you must have come from either step n-1 or step n-2.",
+      "This is similar to the Fibonacci sequence.",
+      "Think about how you can optimize using memoization or bottom-up DP.",
+    ],
+    companies: ["Amazon", "Google", "Adobe", "Apple", "Microsoft"],
+    testcases: [
+      {
+        input: { n: 2 },
+        output: 2,
+      },
+      {
+        input: { n: 3 },
+        output: 3,
+      },
+      {
+        input: { n: 5 },
+        output: 8,
+      },
+      {
+        input: { n: 1 },
+        output: 1,
+      },
+    ],
+    // Function metadata
+    functionName: "climbStairs",
+    parameters: [
+      { name: "n", type: "int" }
+    ],
+    returnType: "int",
+    codeStubs: {
+      python: "class Solution:\n    def climbStairs(self, n: int) -> int:\n        ",
+      java: "class Solution {\n    public int climbStairs(int n) {\n        \n    }\n}",
+      cpp: "class Solution {\npublic:\n    int climbStairs(int n) {\n        \n    }\n};",
+      javascript: "/**\n * @param {number} n\n * @return {number}\n */\nvar climbStairs = function(n) {\n    \n};"
+    }
   },
 ];
 

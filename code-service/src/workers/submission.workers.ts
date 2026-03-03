@@ -4,6 +4,7 @@ import { SubmissionJobData } from "../queues/submission.queue.js";
 import { analyticsQueue } from "../queues/analytics.queue.js";
 import { prisma } from "@codexa/db";
 import { executeBatch } from "../services/judge0.services.js";
+import { generateDynamicWrapper } from "../services/dynamic-wrapper.service.js";
 
 // Map common Judge0 language IDs to language names
 const LANGUAGE_MAP: Record<number, string> = {
@@ -26,7 +27,14 @@ const processSubmission = async (job: Job<SubmissionJobData>) => {
     // 1. Fetch Test Cases + Problem metadata from DB
     const problem = await prisma.problem.findUnique({
       where: { id: problemId },
-      select: { testcases: true, difficulty: true, tags: true },
+      select: { 
+        testcases: true, 
+        difficulty: true, 
+        tags: true,
+        functionName: true,
+        parameters: true,
+        returnType: true
+      },
     });
 
     if (!problem || !problem.testcases) {
@@ -34,8 +42,8 @@ const processSubmission = async (job: Job<SubmissionJobData>) => {
     }
 
     const testCases = problem.testcases as Array<{
-      input: string;
-      output: string;
+      input: Record<string, any>;
+      output: any;
     }>;
 
     // 2. Count attempt number for this user+problem
@@ -43,24 +51,33 @@ const processSubmission = async (job: Job<SubmissionJobData>) => {
       where: { userId, problemId },
     });
 
-    // 3. Prepare Batch Payload for Judge0
+    // 3. Generate wrapped code with problem metadata
+    const metadata = {
+      functionName: problem.functionName,
+      parameters: problem.parameters as Array<{ name: string; type: string }>,
+      returnType: problem.returnType
+    };
+
+    const wrappedCode = generateDynamicWrapper(code, languageId, metadata);
+
+    // 4. Prepare Batch Payload for Judge0
     const batchPayload = testCases.map((tc) => ({
       language_id: languageId,
-      source_code: code,
-      stdin: tc.input,
-      expected_output: tc.output,
+      source_code: wrappedCode,
+      stdin: JSON.stringify(tc.input),  // Send as JSON string
+      expected_output: JSON.stringify(tc.output),  // Compare as JSON
     }));
 
-    // 4. Update Status to PROCESSING
+    // 5. Update Status to PROCESSING
     await prisma.submission.update({
       where: { id: submissionId },
       data: { status: "PROCESSING" },
     });
 
-    // 5. Call Judge0
+    // 6. Call Judge0
     const results = await executeBatch(batchPayload);
 
-    // 6. Aggregate Results
+    // 7. Aggregate Results
     let finalStatus = "ACCEPTED";
     let maxTime = 0.0;
     let maxMemory = 0;
@@ -81,7 +98,7 @@ const processSubmission = async (job: Job<SubmissionJobData>) => {
     const language = LANGUAGE_MAP[languageId] || `lang_${languageId}`;
     const executionTimeMs = maxTime * 1000; // Convert seconds to ms
 
-    // 7. Save Final Result to DB
+    // 8. Save Final Result to DB
     await prisma.submission.update({
       where: { id: submissionId },
       data: {
@@ -96,7 +113,7 @@ const processSubmission = async (job: Job<SubmissionJobData>) => {
       },
     });
 
-    // 8. Send analytics event via BullMQ
+    // 9. Send analytics event via BullMQ
     await analyticsQueue.add("update-stats", {
       userId,
       problemId,

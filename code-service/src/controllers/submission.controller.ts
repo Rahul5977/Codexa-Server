@@ -4,6 +4,7 @@ import { submissionQueue } from "../queues/submission.queue";
 import { prisma } from "@codexa/db";
 import { executeBatch } from "../services/judge0.services";
 import { isRedisConnected } from "../config/redis.js";
+import { wrapUserCode } from "../services/code-wrapper.service";
 
 export const createSubmission = async (req: Request, res: Response) => {
   try {
@@ -144,21 +145,49 @@ export const runCode = async (req: Request, res: Response) => {
     //1. validate schema
     const validatedData = RunCodeSchema.parse(req.body);
     
-    //2. create payload for judge0
+    //2. Fetch problem metadata from DB
+    const problem = await prisma.problem.findUnique({
+      where: { id: validatedData.problemId },
+      select: {
+        functionName: true,
+        parameters: true,
+        returnType: true
+      },
+    });
+
+    if (!problem) {
+      return res.status(404).json({ message: "Problem not found" });
+    }
+
+    //3. Wrap user code with dynamic wrapper using problem metadata
+    const { generateDynamicWrapper } = await import("../services/dynamic-wrapper.service.js");
+    const metadata = {
+      functionName: problem.functionName,
+      parameters: problem.parameters as Array<{ name: string; type: string }>,
+      returnType: problem.returnType
+    };
+    
+    const wrappedCode = generateDynamicWrapper(
+      validatedData.code,
+      validatedData.languageId,
+      metadata
+    );
+    
+    //4. create payload for judge0
     //treated as batch of 1
     const payload = [
       {
         language_id: validatedData.languageId,
-        source_code: validatedData.code,
+        source_code: wrappedCode,
         stdin: validatedData.stdin || "",
         expected_output: "", //for custom inputs(we dont know the output)
       },
     ];
 
-    //3. call judge 0 directly
+    //5. call judge 0 directly
     const response = await executeBatch(payload);
     const result = response[0];
-    //4. return response
+    //6. return response
     return res.status(200).json({
       status: result.status.description,
       stdout: result.stdout,

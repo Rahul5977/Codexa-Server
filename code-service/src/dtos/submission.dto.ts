@@ -10,6 +10,7 @@ export const CreateSubmissionSchema = z.object({
 export const RunCodeSchema=z.object({
   code: z.string().min(1, { message: "Code cannot be empty" }),
   languageId: z.number().int().positive({ message: "Invalid languageId" }),
+  problemId: z.string().uuid({ message: "Invalid problemId" }),
   stdin: z.string().optional(), // User's custom input
 })
 export type CreateSubmissionDTO = z.infer<typeof CreateSubmissionSchema>;
