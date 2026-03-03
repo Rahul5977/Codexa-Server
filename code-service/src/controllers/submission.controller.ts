@@ -87,6 +87,8 @@ export const getSubmissionById = async (req: Request, res: Response) => {
         memory: true,
         createdAt: true,
         languageId: true,
+        code: true,
+        language: true,
       },
     });
     if (!submission) {
@@ -126,7 +128,8 @@ export const getAllSubmissions = async (req: Request, res: Response) => {
         memory: true,
         createdAt: true,
         languageId: true,
-        // We DON'T select 'code' here to keep the response light
+        language: true,
+        // We DON'T select 'code' here to keep the response light for list view
       },
     });
 
