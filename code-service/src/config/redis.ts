@@ -7,34 +7,37 @@ const redisHost = process.env.REDIS_HOST || "localhost";
 const redisPort = Number(process.env.REDIS_PORT) || 6379;
 const isDevelopment = process.env.NODE_ENV === "development";
 
+let isConnected = false;
+
+console.log(`Connecting to Redis at ${redisHost}:${redisPort}`);
+
 export const redisClient = new Redis({
   host: redisHost,
   port: redisPort,
   maxRetriesPerRequest: null,
   retryStrategy: (times) => {
-    if (isDevelopment && times > 3) {
+    if (isDevelopment && times > 5) {
       console.warn("⚠️  Redis connection failed (max retries reached in development mode)");
       return null; // Stop retrying
     }
-    return Math.min(times * 100, 3000);
+    return Math.min(times * 50, 2000);
   },
-  lazyConnect: true, // Don't connect immediately
+  enableReadyCheck: true,
+  lazyConnect: false, // Connect immediately
 });
-
-let isConnected = false;
-
-console.log(`Connecting to Redis at ${redisHost}:${redisPort}`);
 
 export async function connectRedis(): Promise<boolean> {
   try {
-    await redisClient.connect();
+    // Test connection with a ping
+    await redisClient.ping();
     isConnected = true;
-    console.log("✅ Redis client connected");
+    console.log("✅ Redis client connected successfully");
     return true;
-  } catch (error) {
+  } catch (error: any) {
     if (isDevelopment) {
       console.warn("⚠️  Redis connection failed (continuing without Redis in development mode)");
-      console.warn("   Start Redis with: docker-compose up -d redis");
+      console.warn("   Error:", error.message);
+      console.warn("   Start Redis with: docker run -d -p 6379:6379 --name codexa-redis redis:7-alpine");
       return false;
     }
     throw error;

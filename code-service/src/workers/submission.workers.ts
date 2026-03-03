@@ -24,11 +24,12 @@ const processSubmission = async (job: Job<SubmissionJobData>) => {
   const { submissionId, problemId, code, languageId, userId } = job.data;
 
   try {
-    // 1. Fetch Test Cases + Problem metadata from DB
+    // 1. Fetch Test Cases (visible + hidden) + Problem metadata from DB
     const problem = await prisma.problem.findUnique({
       where: { id: problemId },
       select: { 
-        testcases: true, 
+        testcases: true,
+        hiddenTestcases: true,
         difficulty: true, 
         tags: true,
         functionName: true,
@@ -41,10 +42,18 @@ const processSubmission = async (job: Job<SubmissionJobData>) => {
       throw new Error("Test cases missing");
     }
 
-    const testCases = problem.testcases as Array<{
+    const visibleTestCases = problem.testcases as Array<{
       input: Record<string, any>;
       output: any;
     }>;
+    
+    const hiddenTestCases = (problem.hiddenTestcases || []) as Array<{
+      input: Record<string, any>;
+      output: any;
+    }>;
+    
+    // Combine all test cases for submission evaluation
+    const allTestCases = [...visibleTestCases, ...hiddenTestCases];
 
     // 2. Count attempt number for this user+problem
     const attemptCount = await prisma.submission.count({
@@ -61,7 +70,7 @@ const processSubmission = async (job: Job<SubmissionJobData>) => {
     const wrappedCode = generateDynamicWrapper(code, languageId, metadata);
 
     // 4. Prepare Batch Payload for Judge0
-    const batchPayload = testCases.map((tc) => ({
+    const batchPayload = allTestCases.map((tc) => ({
       language_id: languageId,
       source_code: wrappedCode,
       stdin: JSON.stringify(tc.input),  // Send as JSON string
@@ -82,17 +91,35 @@ const processSubmission = async (job: Job<SubmissionJobData>) => {
     let maxTime = 0.0;
     let maxMemory = 0;
     let failedReason = null;
+    let passedCount = 0;
+    let totalCount = allTestCases.length;
 
-    for (const res of results) {
-      if (res.status.id !== 3) {
-        finalStatus = res.status.description.toUpperCase().replace(/ /g, "_");
-        failedReason =
-          res.stderr || res.compile_output || `Failed on input: ${res.stdin}`;
-        break;
-      }
-
-      if (parseFloat(res.time) > maxTime) maxTime = parseFloat(res.time);
+    for (let i = 0; i < results.length; i++) {
+      const res = results[i];
+      
+      // Update max time and memory
+      if (res.time && parseFloat(res.time) > maxTime) maxTime = parseFloat(res.time);
       if (res.memory > maxMemory) maxMemory = res.memory;
+      
+      // Check if test case passed (status 3 = Accepted in Judge0)
+      if (res.status.id === 3) {
+        passedCount++;
+      } else {
+        // Only set failure details if we haven't already
+        if (finalStatus === "ACCEPTED") {
+          const testCaseType = i < visibleTestCases.length ? "visible" : "hidden";
+          const testCaseNumber = i < visibleTestCases.length ? i + 1 : i - visibleTestCases.length + 1;
+          
+          // Map Judge0 status to our status enum
+          if (res.status.id === 4) finalStatus = "WRONG_ANSWER";
+          else if (res.status.id === 5) finalStatus = "TIME_LIMIT_EXCEEDED";
+          else if (res.status.id === 6) finalStatus = "COMPILATION_ERROR";
+          else if (res.status.id === 7 || res.status.id === 8 || res.status.id === 9 || res.status.id === 10 || res.status.id === 11 || res.status.id === 12) finalStatus = "ERROR";
+          else finalStatus = res.status.description.toUpperCase().replace(/ /g, "_");
+          
+          failedReason = res.stderr || res.compile_output || `Failed on ${testCaseType} test case ${testCaseNumber}`;
+        }
+      }
     }
 
     const language = LANGUAGE_MAP[languageId] || `lang_${languageId}`;
@@ -106,7 +133,7 @@ const processSubmission = async (job: Job<SubmissionJobData>) => {
         time: maxTime.toString(),
         memory: maxMemory,
         stderr: failedReason,
-        stdout: results[0]?.stdout,
+        stdout: `Passed ${passedCount}/${totalCount} test cases`,
         language,
         executionTimeMs,
         attemptNumber: attemptCount,
@@ -128,7 +155,7 @@ const processSubmission = async (job: Job<SubmissionJobData>) => {
       createdAt: new Date().toISOString(),
     });
 
-    console.log(`✅ Submission ${submissionId} processed: ${finalStatus}`);
+    console.log(`✅ Submission ${submissionId} processed: ${finalStatus} (${passedCount}/${totalCount} test cases)`);
   } catch (error: any) {
     console.error(`❌ Job Failed for ${submissionId}:`, error.message);
 

@@ -89,7 +89,8 @@ model Problem {
   tags        String[]
   hints       String[]
   companies   String[]
-  testcases   Json[]
+  testcases   Json[]                 // Visible test cases (shown to user for "Run")
+  hiddenTestcases Json[]  @default([]) // Hidden test cases (used for "Submit")
   
   // Function metadata for code execution
   functionName String                 // e.g., "twoSum", "isValid"

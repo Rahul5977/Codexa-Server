@@ -60,9 +60,19 @@ const problems = [
         input: { nums: [3, 3], target: 6 },
         output: [0, 1],
       },
+    ],
+    hiddenTestcases: [
       {
         input: { nums: [-1, -2, -3, -4, -5], target: -8 },
         output: [2, 4],
+      },
+      {
+        input: { nums: [1, 2, 3, 4, 5, 6, 7, 8, 9], target: 17 },
+        output: [7, 8],
+      },
+      {
+        input: { nums: [0, 4, 3, 0], target: 0 },
+        output: [0, 3],
       },
     ],
     // Function metadata for code execution
@@ -122,12 +132,22 @@ const problems = [
         input: { s: "(]" },
         output: false,
       },
+    ],
+    hiddenTestcases: [
       {
         input: { s: "([)]" },
         output: false,
       },
       {
         input: { s: "{[]}" },
+        output: true,
+      },
+      {
+        input: { s: "((((" },
+        output: false,
+      },
+      {
+        input: { s: "()()()()" },
         output: true,
       },
     ],
@@ -186,6 +206,8 @@ const problems = [
         input: { head: [1, 2] },
         output: [2, 1],
       },
+    ],
+    hiddenTestcases: [
       {
         input: { head: [] },
         output: [],
@@ -193,6 +215,10 @@ const problems = [
       {
         input: { head: [1] },
         output: [1],
+      },
+      {
+        input: { head: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] },
+        output: [10, 9, 8, 7, 6, 5, 4, 3, 2, 1],
       },
     ],
     // Function metadata
@@ -244,6 +270,8 @@ const problems = [
         input: { root: [1, null, 2] },
         output: 2,
       },
+    ],
+    hiddenTestcases: [
       {
         input: { root: [] },
         output: 0,
@@ -251,6 +279,10 @@ const problems = [
       {
         input: { root: [1] },
         output: 1,
+      },
+      {
+        input: { root: [1, 2, 3, 4, 5] },
+        output: 3,
       },
     ],
     // Function metadata
@@ -299,6 +331,8 @@ const problems = [
         input: { n: 3 },
         output: 3,
       },
+    ],
+    hiddenTestcases: [
       {
         input: { n: 5 },
         output: 8,
@@ -306,6 +340,10 @@ const problems = [
       {
         input: { n: 1 },
         output: 1,
+      },
+      {
+        input: { n: 10 },
+        output: 89,
       },
     ],
     // Function metadata
