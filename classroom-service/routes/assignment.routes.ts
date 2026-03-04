@@ -13,18 +13,19 @@ import {
   getExamSubmissions,
   getProblems,
 } from "../controller/assignment.controller.js";
-import { authenticate } from "../middleware/auth.middleware.js";
+import { authenticate, isTeacher } from "../middleware/auth.middleware.js";
 
 const assignmentRoutes = express.Router();
 
 // Problem management
-assignmentRoutes.post("/problem", authenticate, createProblem);
+assignmentRoutes.post("/problem", authenticate, isTeacher, createProblem);
 assignmentRoutes.get("/problems", authenticate, getProblems);
 
 // Assignment management
 assignmentRoutes.post(
   "/:classroomId/assignment",
   authenticate,
+  isTeacher,
   createAssignment,
 );
 assignmentRoutes.get(
@@ -45,6 +46,7 @@ assignmentRoutes.post(
 assignmentRoutes.get(
   "/assignment/:assignmentId/submissions",
   authenticate,
+  isTeacher,
   getAssignmentSubmissions,
 );
 
@@ -52,6 +54,7 @@ assignmentRoutes.get(
 assignmentRoutes.post(
   "/:classroomId/exam",
   authenticate,
+  isTeacher,
   createExam,
 );
 assignmentRoutes.get("/:classroomId/exams", authenticate, getClassroomExams);
@@ -60,6 +63,7 @@ assignmentRoutes.post("/exam/:examId/submit", authenticate, submitExam);
 assignmentRoutes.get(
   "/exam/:examId/submissions",
   authenticate,
+  isTeacher,
   getExamSubmissions,
 );
 

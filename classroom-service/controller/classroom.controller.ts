@@ -441,6 +441,81 @@ export const getMyClassrooms = asyncHandler(async (req: Request, res: Response) 
 });
 
 /**
+ * @route   GET /api/classroom/:classroomId
+ * @desc    Get classroom details by ID
+ * @access  Private
+ */
+export const getClassroomById = asyncHandler(async (req: Request, res: Response) => {
+  const { classroomId } = req.params;
+
+  if (!req.user) {
+    throw new ApiError(401, "Authentication required");
+  }
+
+  // Find classroom
+  const classroom = await prisma.classroom.findUnique({
+    where: { id: classroomId },
+    include: {
+      teacher: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+      _count: {
+        select: {
+          enrollments: true,
+        },
+      },
+    },
+  });
+
+  if (!classroom) {
+    throw new ApiError(404, "Classroom not found");
+  }
+
+  // Check if user is teacher or enrolled student
+  const isTeacher = classroom.teacherId === req.user.userId;
+  const isEnrolled = await prisma.classroomEnrollment.findUnique({
+    where: {
+      classroomId_studentId: {
+        classroomId: classroomId,
+        studentId: req.user.userId,
+      },
+    },
+  });
+
+  if (!isTeacher && !isEnrolled) {
+    throw new ApiError(
+      403,
+      "Access denied. You must be enrolled in this classroom to view it",
+    );
+  }
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        classroom: {
+          id: classroom.id,
+          name: classroom.name,
+          description: classroom.description,
+          code: classroom.code,
+          imageUrl: classroom.imageUrl,
+          teacher: classroom.teacher,
+          studentCount: classroom._count.enrollments,
+          createdAt: classroom.createdAt,
+          updatedAt: classroom.updatedAt,
+          isTeacher,
+        },
+      },
+      "Classroom retrieved successfully",
+    ),
+  );
+});
+
+/**
  * @route   PUT /api/classroom/:classroomId
  * @desc    Update classroom details
  * @access  Private (Teacher of the classroom)

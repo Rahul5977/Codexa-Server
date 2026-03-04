@@ -100,3 +100,25 @@ export const optionalAuth = async (
     next();
   }
 };
+
+/**
+ * Teacher authorization middleware
+ * Ensures the user has the TEACHER role
+ */
+export const isTeacher = (
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): void => {
+  if (!req.user) {
+    return next(ApiError.unauthorized("Not authenticated"));
+  }
+
+  if (req.user.role !== "TEACHER") {
+    return next(
+      ApiError.forbidden("Only teachers can perform this action"),
+    );
+  }
+
+  next();
+};
