@@ -282,7 +282,7 @@ export const joinClassroom = asyncHandler(async (req: Request, res: Response) =>
 /**
  * @route   GET /api/classroom/:classroomId/students
  * @desc    Get all enrolled students in a classroom
- * @access  Private (Teacher of the classroom)
+ * @access  Private (All enrolled users)
  */
 export const getEnrolledStudents = asyncHandler(async (req: Request, res: Response) => {
   const { classroomId } = req.params;
@@ -291,7 +291,7 @@ export const getEnrolledStudents = asyncHandler(async (req: Request, res: Respon
     throw new ApiError(401, "Authentication required");
   }
 
-  // Find classroom and verify teacher
+  // Find classroom
   const classroom = await prisma.classroom.findUnique({
     where: { id: classroomId },
     include: {
@@ -309,11 +309,21 @@ export const getEnrolledStudents = asyncHandler(async (req: Request, res: Respon
     throw new ApiError(404, "Classroom not found");
   }
 
-  // Check if user is the teacher of this classroom or admin
-  if (classroom.teacherId !== req.user.userId && req.user.role !== "ADMIN") {
+  // Check if user is the teacher or enrolled in this classroom
+  const isTeacher = classroom.teacherId === req.user.userId;
+  const isEnrolled = await prisma.classroomEnrollment.findUnique({
+    where: {
+      classroomId_studentId: {
+        classroomId,
+        studentId: req.user.userId,
+      },
+    },
+  });
+
+  if (!isTeacher && !isEnrolled && req.user.role !== "ADMIN") {
     throw new ApiError(
       403,
-      "Access denied. Only the teacher can view enrolled students",
+      "Access denied. Only enrolled users can view the student list",
     );
   }
 
@@ -326,6 +336,7 @@ export const getEnrolledStudents = asyncHandler(async (req: Request, res: Respon
           id: true,
           name: true,
           email: true,
+          image_url: true,
           currentRating: true,
           totalSolved: true,
           easyCount: true,

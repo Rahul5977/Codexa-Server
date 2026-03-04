@@ -21,12 +21,11 @@ classroomRoutes.post("/join", authenticate, joinClassroom);
 // Get user's classrooms (both teaching and enrolled)
 classroomRoutes.get("/my-classrooms", authenticate, getMyClassrooms);
 
-// Get enrolled students in a specific classroom (Teacher only)
+// Get enrolled students in a specific classroom (All enrolled users)
 // This must come BEFORE /:classroomId to avoid route conflicts
 classroomRoutes.get(
   "/:classroomId/students",
   authenticate,
-  isTeacher,
   getEnrolledStudents,
 );
 
