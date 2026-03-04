@@ -428,6 +428,7 @@ export const getMyClassrooms = asyncHandler(async (req: Request, res: Response) 
           id: enrollment.classroom.id,
           name: enrollment.classroom.name,
           description: enrollment.classroom.description,
+          code: enrollment.classroom.code,
           imageUrl: enrollment.classroom.imageUrl,
           teacher: enrollment.classroom.teacher,
           studentCount: enrollment.classroom._count.enrollments,
