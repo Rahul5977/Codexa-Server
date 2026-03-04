@@ -1,4 +1,5 @@
 import { ZodError } from "zod";
+import { Request, Response } from "express";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/api-error.js";
 import { ApiResponse } from "../utils/api-response.js";
@@ -32,7 +33,7 @@ function formatZodErrors(error: ZodError): Record<string, string> {
  * @desc    Create a new classroom (Teacher only)
  * @access  Private (Teacher/Admin)
  */
-export const createClassroom = asyncHandler(async (req, res) => {
+export const createClassroom = asyncHandler(async (req: Request, res: Response) => {
   try {
     // Validate input
     const validatedData: CreateClassroomInput = createClassroomSchema.parse(
@@ -157,7 +158,7 @@ export const createClassroom = asyncHandler(async (req, res) => {
  * @desc    Join a classroom using code (Student only)
  * @access  Private (Student/Admin)
  */
-export const joinClassroom = asyncHandler(async (req, res) => {
+export const joinClassroom = asyncHandler(async (req: Request, res: Response) => {
   try {
     // Validate input
     const validatedData: JoinClassroomInput = joinClassroomSchema.parse(
@@ -283,7 +284,7 @@ export const joinClassroom = asyncHandler(async (req, res) => {
  * @desc    Get all enrolled students in a classroom
  * @access  Private (Teacher of the classroom)
  */
-export const getEnrolledStudents = asyncHandler(async (req, res) => {
+export const getEnrolledStudents = asyncHandler(async (req: Request, res: Response) => {
   const { classroomId } = req.params;
 
   if (!req.user) {
@@ -363,7 +364,7 @@ export const getEnrolledStudents = asyncHandler(async (req, res) => {
  * @desc    Get user's classrooms (teaching or enrolled)
  * @access  Private
  */
-export const getMyClassrooms = asyncHandler(async (req, res) => {
+export const getMyClassrooms = asyncHandler(async (req: Request, res: Response) => {
   if (!req.user) {
     throw new ApiError(401, "Authentication required");
   }
@@ -443,7 +444,7 @@ export const getMyClassrooms = asyncHandler(async (req, res) => {
  * @desc    Update classroom details
  * @access  Private (Teacher of the classroom)
  */
-export const updateClassroom = asyncHandler(async (req, res) => {
+export const updateClassroom = asyncHandler(async (req: Request, res: Response) => {
   try {
     const { classroomId } = req.params;
     const validatedData: UpdateClassroomInput = updateClassroomSchema.parse(
@@ -528,7 +529,7 @@ export const updateClassroom = asyncHandler(async (req, res) => {
  * @desc    Delete a classroom
  * @access  Private (Teacher of the classroom)
  */
-export const deleteClassroom = asyncHandler(async (req, res) => {
+export const deleteClassroom = asyncHandler(async (req: Request, res: Response) => {
   const { classroomId } = req.params;
 
   if (!req.user) {

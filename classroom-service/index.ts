@@ -3,8 +3,15 @@ import dotenv from "dotenv";
 import { connectDB, disconnectDB } from "./libs/prisma.js";
 import { initKafka, disconnectKafka } from "./libs/kafka.js";
 
-// Load environment variables
-dotenv.config();
+// Load environment variables with override to ensure classroom-service .env takes precedence
+dotenv.config({ override: true });
+
+// Verify critical environment variables are loaded
+if (!process.env.JWT_ACCESS_SECRET && !process.env.JWT_SECRET) {
+  console.error("❌ ERROR: JWT_ACCESS_SECRET or JWT_SECRET not found in environment!");
+  console.error("Please check your .env file in classroom-service directory");
+  process.exit(1);
+}
 
 const PORT = process.env.PORT || 3003;
 

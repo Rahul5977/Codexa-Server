@@ -1,10 +1,10 @@
+import dotenv from "dotenv";
+dotenv.config({ override: true });
+
 import app from "./app.js";
 import { disconnectDB } from "./libs/prisma.js";
 import { kafkaProducer } from "./libs/kafka.js";
 import type { Server } from "http";
-import dotenv from "dotenv";
-
-dotenv.config();
 
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || "development";

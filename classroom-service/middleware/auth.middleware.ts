@@ -29,87 +29,74 @@ export const authenticate = async (
     const token = extractBearerToken(req.headers.authorization);
 
     if (!token) {
-      throw new ApiError(401, "Access token is required");
+      throw ApiError.unauthorized("Access token is required");
     }
 
-    // Verify the token
+    // Verify token
     const decoded = verifyAccessToken(token);
 
-    // Optional: Check if user still exists (in case user was deleted after token was issued)
+    // Optionally verify user still exists
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
-      select: { id: true, email: true, role: true, status: true },
+      select: { id: true, email: true, role: true },
     });
 
     if (!user) {
-      throw new ApiError(401, "User not found");
+      throw ApiError.unauthorized("User not found");
     }
 
-    if (user.status !== "ACTIVE") {
-      throw new ApiError(401, "Account is not active");
-    }
-
-    // Attach user info to request
-    req.user = {
-      userId: decoded.userId,
-      email: decoded.email,
-      role: decoded.role,
-      iat: decoded.iat,
-      exp: decoded.exp,
-    };
-
+    // Attach user to request
+    req.user = decoded;
     next();
   } catch (error) {
     if (error instanceof ApiError) {
       next(error);
     } else {
-      next(new ApiError(401, "Invalid token"));
+      next(ApiError.unauthorized("Invalid or expired token"));
     }
   }
 };
 
 /**
- * Authorization middleware for teachers only
+ * Authorization middleware factory
+ * Check if user has required role(s)
  */
-export const requireTeacher = async (
-  req: Request,
-  _res: Response,
-  next: NextFunction,
-): Promise<void> => {
-  try {
+export const authorize = (...allowedRoles: string[]) => {
+  return (req: Request, _res: Response, next: NextFunction): void => {
     if (!req.user) {
-      throw new ApiError(401, "Authentication required");
+      return next(ApiError.unauthorized("Not authenticated"));
     }
 
-    if (req.user.role !== "TEACHER" && req.user.role !== "ADMIN") {
-      throw new ApiError(403, "Teacher role required");
+    if (!allowedRoles.includes(req.user.role)) {
+      return next(
+        ApiError.forbidden("You don't have permission to perform this action"),
+      );
     }
 
     next();
-  } catch (error) {
-    next(error);
-  }
+  };
 };
 
 /**
- * Authorization middleware for students only
+ * Optional authentication middleware
+ * Attaches user to request if token is valid, but doesn't fail if missing
  */
-export const requireStudent = async (
+export const optionalAuth = async (
   req: Request,
   _res: Response,
   next: NextFunction,
 ): Promise<void> => {
   try {
-    if (!req.user) {
-      throw new ApiError(401, "Authentication required");
-    }
+    const token = extractBearerToken(req.headers.authorization);
 
-    if (req.user.role !== "STUDENT" && req.user.role !== "ADMIN") {
-      throw new ApiError(403, "Student role required");
+    if (token) {
+      const decoded = verifyAccessToken(token);
+      req.user = decoded;
     }
 
     next();
-  } catch (error) {
-    next(error);
+  } catch {
+    // Token invalid or expired, continue without user
+    next();
   }
 };

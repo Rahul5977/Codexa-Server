@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import type { JwtPayload } from "jsonwebtoken";
+import type { JwtPayload, SignOptions } from "jsonwebtoken";
 
 export interface TokenPayload extends JwtPayload {
   userId: string;
@@ -30,14 +30,20 @@ export function generateTokenPair(payload: Omit<TokenPayload, "iat" | "exp">) {
 export function generateAccessToken(
   payload: Omit<TokenPayload, "iat" | "exp">,
 ) {
-  const secret = process.env.JWT_SECRET;
-  const expiresIn = process.env.JWT_EXPIRES_IN || "15m";
+  const secret = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET;
+  const expiresIn = "15m";
 
   if (!secret) {
     throw new Error("JWT_SECRET environment variable is not set");
   }
 
-  return jwt.sign(payload, secret, { expiresIn });
+  const options: SignOptions = {
+    expiresIn,
+    issuer: "codexa-classroom-service",
+    subject: payload.userId,
+  };
+
+  return jwt.sign(payload, secret, options);
 }
 
 /**
@@ -46,21 +52,27 @@ export function generateAccessToken(
 export function generateRefreshToken(
   payload: Omit<TokenPayload, "iat" | "exp">,
 ) {
-  const secret = process.env.REFRESH_TOKEN_SECRET;
-  const expiresIn = process.env.REFRESH_TOKEN_EXPIRES_IN || "7d";
+  const secret = process.env.JWT_REFRESH_SECRET || process.env.REFRESH_TOKEN_SECRET;
+  const expiresIn = "7d";
 
   if (!secret) {
     throw new Error("REFRESH_TOKEN_SECRET environment variable is not set");
   }
 
-  return jwt.sign(payload, secret, { expiresIn });
+  const options: SignOptions = {
+    expiresIn,
+    issuer: "codexa-classroom-service",
+    subject: payload.userId,
+  };
+
+  return jwt.sign(payload, secret, options);
 }
 
 /**
  * Verify access token
  */
 export function verifyAccessToken(token: string): DecodedToken {
-  const secret = process.env.JWT_SECRET;
+  const secret = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET;
 
   if (!secret) {
     throw new Error("JWT_SECRET environment variable is not set");
@@ -77,7 +89,7 @@ export function verifyAccessToken(token: string): DecodedToken {
  * Verify refresh token
  */
 export function verifyRefreshToken(token: string): DecodedToken {
-  const secret = process.env.REFRESH_TOKEN_SECRET;
+  const secret = process.env.JWT_REFRESH_SECRET || process.env.REFRESH_TOKEN_SECRET;
 
   if (!secret) {
     throw new Error("REFRESH_TOKEN_SECRET environment variable is not set");
