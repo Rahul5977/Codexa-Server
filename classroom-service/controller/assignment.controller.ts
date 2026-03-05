@@ -515,7 +515,20 @@ export const getAssignmentDetails = asyncHandler(async (req, res) => {
       },
       problems: {
         include: {
-          problem: true,
+          problem: {
+            select: {
+              id: true,
+              title: true,
+              difficulty: true,
+              statement: true,
+              tags: true,
+              examples: true,
+              constraints: true,
+              companies: true,
+              hints: true,
+              // testcases excluded for security
+            },
+          },
         },
         orderBy: { order: "asc" },
       },
@@ -567,7 +580,20 @@ export const getExamDetails = asyncHandler(async (req, res) => {
       },
       problems: {
         include: {
-          problem: true,
+          problem: {
+            select: {
+              id: true,
+              title: true,
+              difficulty: true,
+              statement: true,
+              tags: true,
+              examples: true,
+              constraints: true,
+              companies: true,
+              hints: true,
+              // testcases excluded for security
+            },
+          },
         },
         orderBy: { order: "asc" },
       },

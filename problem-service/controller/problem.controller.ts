@@ -76,7 +76,22 @@ export const updateProblem = asyncHandler(
 // Get all problems
 export const getProblems = asyncHandler(
   async (_req: Request, res: Response) => {
-    const problems = await prisma.problem.findMany();
+    const problems = await prisma.problem.findMany({
+      select: {
+        id: true,
+        title: true,
+        difficulty: true,
+        statement: true,
+        tags: true,
+        examples: true,
+        constraints: true,
+        companies: true,
+        hints: true,
+        createdAt: true,
+        updatedAt: true,
+        // testcases excluded for security
+      },
+    });
     const response = ApiResponse.success(
       problems,
       "Problems fetched successfully",
@@ -92,7 +107,23 @@ export const getProblemById = asyncHandler(
     if (Array.isArray(id) || typeof id !== "string") {
       throw ApiError.badRequest("Invalid problem id");
     }
-    const problem = await prisma.problem.findUnique({ where: { id } });
+    const problem = await prisma.problem.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        title: true,
+        difficulty: true,
+        statement: true,
+        tags: true,
+        examples: true,
+        constraints: true,
+        companies: true,
+        hints: true,
+        createdAt: true,
+        updatedAt: true,
+        // testcases excluded for security
+      },
+    });
     if (!problem) throw ApiError.notFound("Problem not found");
     const response = ApiResponse.success(
       problem,
