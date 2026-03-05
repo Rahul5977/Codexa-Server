@@ -97,7 +97,7 @@ model Problem {
   functionName String                 // e.g., "twoSum", "isValid"
   parameters   Json                   // Array of {name, type}, e.g., [{"name": "nums", "type": "int[]"}]
   returnType   String                 // e.g., "int[]", "boolean", "ListNode"
-  codeStubs    Json                   // Language-specific starter code
+  codeStubs    Json?                  // Language-specific starter code (optional)
   
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt

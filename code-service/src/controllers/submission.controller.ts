@@ -4,7 +4,6 @@ import { submissionQueue } from "../queues/submission.queue";
 import { prisma } from "@codexa/db";
 import { executeBatch } from "../services/judge0.services";
 import { isRedisConnected } from "../config/redis.js";
-import { wrapUserCode } from "../services/code-wrapper.service";
 
 export const createSubmission = async (req: Request, res: Response) => {
   try {
@@ -148,13 +147,11 @@ export const runCode = async (req: Request, res: Response) => {
     //1. validate schema
     const validatedData = RunCodeSchema.parse(req.body);
     
-    //2. Fetch problem metadata from DB
+    //2. Fetch problem (for reference, but we don't need metadata for wrapping anymore)
     const problem = await prisma.problem.findUnique({
       where: { id: validatedData.problemId },
       select: {
-        functionName: true,
-        parameters: true,
-        returnType: true
+        id: true,
       },
     });
 
@@ -162,35 +159,20 @@ export const runCode = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Problem not found" });
     }
 
-    //3. Wrap user code with dynamic wrapper using problem metadata
-    const { generateDynamicWrapper } = await import("../services/dynamic-wrapper.service.js");
-    const metadata = {
-      functionName: problem.functionName,
-      parameters: problem.parameters as Array<{ name: string; type: string }>,
-      returnType: problem.returnType
-    };
-    
-    const wrappedCode = generateDynamicWrapper(
-      validatedData.code,
-      validatedData.languageId,
-      metadata
-    );
-    
-    //4. create payload for judge0
-    //treated as batch of 1
+    //3. Create payload for judge0 (no wrapping needed - users write complete programs)
     const payload = [
       {
         language_id: validatedData.languageId,
-        source_code: wrappedCode,
-        stdin: validatedData.stdin || "",
+        source_code: validatedData.code,  // Use user's code directly
+        stdin: validatedData.stdin || "",  // Plain text input
         expected_output: "", //for custom inputs(we dont know the output)
       },
     ];
 
-    //5. call judge 0 directly
+    //4. call judge 0 directly
     const response = await executeBatch(payload);
     const result = response[0];
-    //6. return response
+    //5. return response
     return res.status(200).json({
       status: result.status.description,
       stdout: result.stdout,

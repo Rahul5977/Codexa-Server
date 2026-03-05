@@ -4,7 +4,6 @@ import { SubmissionJobData } from "../queues/submission.queue.js";
 import { analyticsQueue } from "../queues/analytics.queue.js";
 import { prisma } from "@codexa/db";
 import { executeBatch } from "../services/judge0.services.js";
-import { generateDynamicWrapper } from "../services/dynamic-wrapper.service.js";
 
 // Map common Judge0 language IDs to language names
 const LANGUAGE_MAP: Record<number, string> = {
@@ -24,17 +23,14 @@ const processSubmission = async (job: Job<SubmissionJobData>) => {
   const { submissionId, problemId, code, languageId, userId } = job.data;
 
   try {
-    // 1. Fetch Test Cases (visible + hidden) + Problem metadata from DB
+    // 1. Fetch Test Cases (visible + hidden) from DB
     const problem = await prisma.problem.findUnique({
       where: { id: problemId },
-      select: { 
+      select: {
         testcases: true,
         hiddenTestcases: true,
-        difficulty: true, 
+        difficulty: true,
         tags: true,
-        functionName: true,
-        parameters: true,
-        returnType: true
       },
     });
 
@@ -43,38 +39,29 @@ const processSubmission = async (job: Job<SubmissionJobData>) => {
     }
 
     const visibleTestCases = problem.testcases as Array<{
-      input: Record<string, any>;
-      output: any;
+      input: string;
+      output: string;
     }>;
-    
+
     const hiddenTestCases = (problem.hiddenTestcases || []) as Array<{
-      input: Record<string, any>;
-      output: any;
+      input: string;
+      output: string;
     }>;
-    
+
     // Combine all test cases for submission evaluation
     const allTestCases = [...visibleTestCases, ...hiddenTestCases];
 
-    // 2. Count attempt number for this user+problem
+    // 3. Count attempt number for this user+problem
     const attemptCount = await prisma.submission.count({
       where: { userId, problemId },
     });
 
-    // 3. Generate wrapped code with problem metadata
-    const metadata = {
-      functionName: problem.functionName,
-      parameters: problem.parameters as Array<{ name: string; type: string }>,
-      returnType: problem.returnType
-    };
-
-    const wrappedCode = generateDynamicWrapper(code, languageId, metadata);
-
-    // 4. Prepare Batch Payload for Judge0
+    // 4. Prepare Batch Payload for Judge0 (users write complete programs, no wrapping needed)
     const batchPayload = allTestCases.map((tc) => ({
       language_id: languageId,
-      source_code: wrappedCode,
-      stdin: JSON.stringify(tc.input),  // Send as JSON string
-      expected_output: JSON.stringify(tc.output),  // Compare as JSON
+      source_code: code, // Use user's code directly, no wrapping
+      stdin: tc.input, // Plain text input (e.g., "4 9\n2 7 11 15")
+      expected_output: tc.output.trim(), // Plain text expected output (e.g., "0 1")
     }));
 
     // 5. Update Status to PROCESSING
@@ -96,28 +83,47 @@ const processSubmission = async (job: Job<SubmissionJobData>) => {
 
     for (let i = 0; i < results.length; i++) {
       const res = results[i];
-      
+
       // Update max time and memory
-      if (res.time && parseFloat(res.time) > maxTime) maxTime = parseFloat(res.time);
+      if (res.time && parseFloat(res.time) > maxTime)
+        maxTime = parseFloat(res.time);
       if (res.memory > maxMemory) maxMemory = res.memory;
-      
+
       // Check if test case passed (status 3 = Accepted in Judge0)
       if (res.status.id === 3) {
         passedCount++;
       } else {
         // Only set failure details if we haven't already
         if (finalStatus === "ACCEPTED") {
-          const testCaseType = i < visibleTestCases.length ? "visible" : "hidden";
-          const testCaseNumber = i < visibleTestCases.length ? i + 1 : i - visibleTestCases.length + 1;
-          
+          const testCaseType =
+            i < visibleTestCases.length ? "visible" : "hidden";
+          const testCaseNumber =
+            i < visibleTestCases.length
+              ? i + 1
+              : i - visibleTestCases.length + 1;
+
           // Map Judge0 status to our status enum
           if (res.status.id === 4) finalStatus = "WRONG_ANSWER";
           else if (res.status.id === 5) finalStatus = "TIME_LIMIT_EXCEEDED";
           else if (res.status.id === 6) finalStatus = "COMPILATION_ERROR";
-          else if (res.status.id === 7 || res.status.id === 8 || res.status.id === 9 || res.status.id === 10 || res.status.id === 11 || res.status.id === 12) finalStatus = "ERROR";
-          else finalStatus = res.status.description.toUpperCase().replace(/ /g, "_");
-          
-          failedReason = res.stderr || res.compile_output || `Failed on ${testCaseType} test case ${testCaseNumber}`;
+          else if (
+            res.status.id === 7 ||
+            res.status.id === 8 ||
+            res.status.id === 9 ||
+            res.status.id === 10 ||
+            res.status.id === 11 ||
+            res.status.id === 12
+          )
+            finalStatus = "ERROR";
+          else
+            finalStatus = res.status.description
+              .toUpperCase()
+              .replace(/ /g, "_");
+
+          failedReason =
+            res.stderr ||
+            res.compile_output ||
+            `Failed on ${testCaseType} test case ${testCaseNumber}`;
         }
       }
     }
@@ -155,7 +161,9 @@ const processSubmission = async (job: Job<SubmissionJobData>) => {
       createdAt: new Date().toISOString(),
     });
 
-    console.log(`✅ Submission ${submissionId} processed: ${finalStatus} (${passedCount}/${totalCount} test cases)`);
+    console.log(
+      `✅ Submission ${submissionId} processed: ${finalStatus} (${passedCount}/${totalCount} test cases)`,
+    );
   } catch (error: any) {
     console.error(`❌ Job Failed for ${submissionId}:`, error.message);
 
