@@ -704,6 +704,14 @@ export const submitAssignment = asyncHandler(async (req, res) => {
       },
     });
 
+    // Delete all drafts for this assignment after successful submission
+    await prisma.assignmentDraft.deleteMany({
+      where: {
+        assignmentId,
+        studentId: req.user.userId,
+      },
+    });
+
     res
       .status(200)
       .json(
@@ -1004,6 +1012,224 @@ export const getExamSubmissions = asyncHandler(async (req, res) => {
       "Exam submissions retrieved successfully",
     ),
   );
+});
+
+/**
+ * @route   POST /api/classroom/assignment/:assignmentId/draft
+ * @desc    Save/update a draft for an assignment problem
+ * @access  Private (Enrolled students only)
+ */
+export const saveDraft = asyncHandler(async (req, res) => {
+  const { assignmentId } = req.params;
+  const { problemId, code, languageId } = req.body;
+
+  if (!req.user) {
+    throw new ApiError(401, "Authentication required");
+  }
+
+  if (!problemId || !code || !languageId) {
+    throw new ApiError(400, "Problem ID, code, and language ID are required");
+  }
+
+  // Get assignment with classroom info
+  const assignment = await prisma.assignment.findUnique({
+    where: { id: assignmentId },
+    include: {
+      classroom: { select: { id: true, teacherId: true } },
+    },
+  });
+
+  if (!assignment) {
+    throw new ApiError(404, "Assignment not found");
+  }
+
+  const isTeacher = assignment.classroom.teacherId === req.user.userId;
+
+  // Verify student enrollment (skip for teachers)
+  if (!isTeacher) {
+    await verifyStudentEnrollment(assignment.classroom.id, req.user.userId);
+  }
+
+  // Check if problem is part of the assignment
+  const assignmentProblem = await prisma.assignmentProblem.findFirst({
+    where: {
+      assignmentId,
+      problemId,
+    },
+  });
+
+  if (!assignmentProblem) {
+    throw new ApiError(400, "Problem not part of this assignment");
+  }
+
+  // Upsert draft
+  const draft = await prisma.assignmentDraft.upsert({
+    where: {
+      assignmentId_studentId_problemId: {
+        assignmentId,
+        studentId: req.user.userId,
+        problemId,
+      },
+    },
+    create: {
+      assignmentId,
+      studentId: req.user.userId,
+      problemId,
+      code,
+      languageId,
+    },
+    update: {
+      code,
+      languageId,
+      updatedAt: new Date(),
+    },
+  });
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, { draft }, "Draft saved successfully"));
+});
+
+/**
+ * @route   GET /api/classroom/assignment/:assignmentId/problem/:problemId/draft
+ * @desc    Get draft for a specific problem in an assignment
+ * @access  Private (Enrolled students only)
+ */
+export const getDraft = asyncHandler(async (req, res) => {
+  const { assignmentId, problemId } = req.params;
+
+  if (!req.user) {
+    throw new ApiError(401, "Authentication required");
+  }
+
+  // Get assignment with classroom info
+  const assignment = await prisma.assignment.findUnique({
+    where: { id: assignmentId },
+    include: {
+      classroom: { select: { id: true, teacherId: true } },
+    },
+  });
+
+  if (!assignment) {
+    throw new ApiError(404, "Assignment not found");
+  }
+
+  const isTeacher = assignment.classroom.teacherId === req.user.userId;
+
+  // Verify student enrollment (skip for teachers)
+  if (!isTeacher) {
+    await verifyStudentEnrollment(assignment.classroom.id, req.user.userId);
+  }
+
+  // Get draft
+  const draft = await prisma.assignmentDraft.findUnique({
+    where: {
+      assignmentId_studentId_problemId: {
+        assignmentId,
+        studentId: req.user.userId,
+        problemId,
+      },
+    },
+  });
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { draft },
+        draft ? "Draft retrieved successfully" : "No draft found",
+      ),
+    );
+});
+
+/**
+ * @route   GET /api/classroom/assignment/:assignmentId/drafts
+ * @desc    Get all drafts for an assignment
+ * @access  Private (Enrolled students only)
+ */
+export const getAssignmentDrafts = asyncHandler(async (req, res) => {
+  const { assignmentId } = req.params;
+
+  if (!req.user) {
+    throw new ApiError(401, "Authentication required");
+  }
+
+  // Get assignment with classroom info
+  const assignment = await prisma.assignment.findUnique({
+    where: { id: assignmentId },
+    include: {
+      classroom: { select: { id: true, teacherId: true } },
+    },
+  });
+
+  if (!assignment) {
+    throw new ApiError(404, "Assignment not found");
+  }
+
+  const isTeacher = assignment.classroom.teacherId === req.user.userId;
+
+  // Verify student enrollment (skip for teachers)
+  if (!isTeacher) {
+    await verifyStudentEnrollment(assignment.classroom.id, req.user.userId);
+  }
+
+  // Get all drafts for this assignment
+  const drafts = await prisma.assignmentDraft.findMany({
+    where: {
+      assignmentId,
+      studentId: req.user.userId,
+    },
+    orderBy: { updatedAt: "desc" },
+  });
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, { drafts }, "Drafts retrieved successfully"));
+});
+
+/**
+ * @route   DELETE /api/classroom/assignment/:assignmentId/drafts
+ * @desc    Delete all drafts for an assignment (called after submission)
+ * @access  Private (Enrolled students only)
+ */
+export const deleteAssignmentDrafts = asyncHandler(async (req, res) => {
+  const { assignmentId } = req.params;
+
+  if (!req.user) {
+    throw new ApiError(401, "Authentication required");
+  }
+
+  // Get assignment with classroom info
+  const assignment = await prisma.assignment.findUnique({
+    where: { id: assignmentId },
+    include: {
+      classroom: { select: { id: true, teacherId: true } },
+    },
+  });
+
+  if (!assignment) {
+    throw new ApiError(404, "Assignment not found");
+  }
+
+  const isTeacher = assignment.classroom.teacherId === req.user.userId;
+
+  // Verify student enrollment (skip for teachers)
+  if (!isTeacher) {
+    await verifyStudentEnrollment(assignment.classroom.id, req.user.userId);
+  }
+
+  // Delete all drafts for this assignment
+  await prisma.assignmentDraft.deleteMany({
+    where: {
+      assignmentId,
+      studentId: req.user.userId,
+    },
+  });
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, null, "Drafts deleted successfully"));
 });
 
 /**

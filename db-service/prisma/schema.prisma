@@ -71,6 +71,7 @@ model User {
   // Assignment/Exam submissions
   assignmentSubmissions AssignmentSubmission[]
   examSubmissions       ExamSubmission[]
+  assignmentDrafts      AssignmentDraft[]
 }
 
 enum Difficulty {
@@ -106,6 +107,7 @@ model Problem {
   problemAnalytics   ProblemAnalytics?
   assignmentProblems AssignmentProblem[]
   examProblems       ExamProblem[]
+  assignmentDrafts   AssignmentDraft[]
 }
 
 model Submission {
@@ -280,6 +282,7 @@ model Assignment {
   // Relations
   problems    AssignmentProblem[]
   submissions AssignmentSubmission[]
+  drafts      AssignmentDraft[]
 
   @@index([classroomId])
   @@index([deadline])
@@ -320,6 +323,29 @@ model AssignmentSubmission {
   @@index([assignmentId])
   @@index([studentId])
   @@map("assignment_submissions")
+}
+
+model AssignmentDraft {
+  id           String @id @default(uuid())
+  assignmentId String
+  studentId    String
+  problemId    String
+
+  code       String
+  languageId Int    @default(71) // Judge0 language ID
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student    User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  problem    Problem    @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, studentId, problemId]) // Only one draft per student per problem per assignment
+  @@index([assignmentId])
+  @@index([studentId])
+  @@index([problemId])
+  @@map("assignment_drafts")
 }
 
 model Exam {

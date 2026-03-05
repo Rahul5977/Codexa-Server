@@ -13,6 +13,10 @@ import {
   getAssignmentSubmissions,
   getExamSubmissions,
   getProblems,
+  saveDraft,
+  getDraft,
+  getAssignmentDrafts,
+  deleteAssignmentDrafts,
 } from "../controller/assignment.controller.js";
 import { authenticate, isTeacher } from "../middleware/auth.middleware.js";
 
@@ -54,6 +58,28 @@ assignmentRoutes.get(
   authenticate,
   isTeacher,
   getAssignmentSubmissions,
+);
+
+// Assignment draft management
+assignmentRoutes.post(
+  "/assignment/:assignmentId/draft",
+  authenticate,
+  saveDraft,
+);
+assignmentRoutes.get(
+  "/assignment/:assignmentId/problem/:problemId/draft",
+  authenticate,
+  getDraft,
+);
+assignmentRoutes.get(
+  "/assignment/:assignmentId/drafts",
+  authenticate,
+  getAssignmentDrafts,
+);
+assignmentRoutes.delete(
+  "/assignment/:assignmentId/drafts",
+  authenticate,
+  deleteAssignmentDrafts,
 );
 
 // Exam management
