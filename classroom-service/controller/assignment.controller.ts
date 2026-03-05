@@ -801,6 +801,58 @@ export const submitExam = asyncHandler(async (req, res) => {
 });
 
 /**
+ * @route   GET /api/classroom/assignment/:assignmentId/my-submission
+ * @desc    Get current user's submission for an assignment
+ * @access  Private (Student enrolled in classroom)
+ */
+export const getMySubmission = asyncHandler(async (req, res) => {
+  const { assignmentId } = req.params;
+
+  if (!req.user) {
+    throw new ApiError(401, "Authentication required");
+  }
+
+  // Get assignment with classroom info
+  const assignment = await prisma.assignment.findUnique({
+    where: { id: assignmentId },
+    include: {
+      classroom: { select: { id: true } },
+    },
+  });
+
+  if (!assignment) {
+    throw new ApiError(404, "Assignment not found");
+  }
+
+  // Verify student enrollment
+  await verifyStudentEnrollment(assignment.classroom.id, req.user.userId);
+
+  // Get submission
+  const submission = await prisma.assignmentSubmission.findUnique({
+    where: {
+      assignmentId_studentId: {
+        assignmentId,
+        studentId: req.user.userId,
+      },
+    },
+  });
+
+  if (!submission) {
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, null, "No submission found for this assignment"),
+      );
+  }
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(200, { submission }, "Submission retrieved successfully"),
+    );
+});
+
+/**
  * @route   GET /api/classroom/assignment/:assignmentId/submissions
  * @desc    Get all submissions for an assignment (Teacher only)
  * @access  Private (Teacher of the classroom)

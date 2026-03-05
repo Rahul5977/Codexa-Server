@@ -9,6 +9,7 @@ import {
   getExamDetails,
   submitAssignment,
   submitExam,
+  getMySubmission,
   getAssignmentSubmissions,
   getExamSubmissions,
   getProblems,
@@ -42,6 +43,11 @@ assignmentRoutes.post(
   "/assignment/:assignmentId/submit",
   authenticate,
   submitAssignment,
+);
+assignmentRoutes.get(
+  "/assignment/:assignmentId/my-submission",
+  authenticate,
+  getMySubmission,
 );
 assignmentRoutes.get(
   "/assignment/:assignmentId/submissions",
