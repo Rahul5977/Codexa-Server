@@ -55,11 +55,19 @@ export const updateProblem = asyncHandler(
       updateData.examples = { set: data.examples };
     if (data.testcases !== undefined)
       updateData.testcases = { set: data.testcases };
+    if (data.hiddenTestcases !== undefined)
+      updateData.hiddenTestcases = { set: data.hiddenTestcases };
     if (data.constraints !== undefined)
       updateData.constraints = { set: data.constraints };
     if (data.companies !== undefined)
       updateData.companies = { set: data.companies };
     if (data.hints !== undefined) updateData.hints = { set: data.hints };
+    if (data.functionName !== undefined)
+      updateData.functionName = { set: data.functionName };
+    if (data.parameters !== undefined)
+      updateData.parameters = { set: data.parameters };
+    if (data.returnType !== undefined)
+      updateData.returnType = { set: data.returnType };
 
     const problem = await prisma.problem.update({
       where: { id },
