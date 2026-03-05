@@ -816,7 +816,7 @@ export const getMySubmission = asyncHandler(async (req, res) => {
   const assignment = await prisma.assignment.findUnique({
     where: { id: assignmentId },
     include: {
-      classroom: { select: { id: true } },
+      classroom: { select: { id: true, teacherId: true } },
     },
   });
 
@@ -824,8 +824,12 @@ export const getMySubmission = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Assignment not found");
   }
 
-  // Verify student enrollment
-  await verifyStudentEnrollment(assignment.classroom.id, req.user.userId);
+  const isTeacher = assignment.classroom.teacherId === req.user.userId;
+
+  // Verify student enrollment (skip for teachers)
+  if (!isTeacher) {
+    await verifyStudentEnrollment(assignment.classroom.id, req.user.userId);
+  }
 
   // Get submission
   const submission = await prisma.assignmentSubmission.findUnique({
