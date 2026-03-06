@@ -141,6 +141,30 @@ export const getProblemById = asyncHandler(
   },
 );
 
+// Get test cases for a problem (teachers only - for grading)
+export const getProblemTestCases = asyncHandler(
+  async (req: Request, res: Response) => {
+    let { id } = req.params;
+    if (Array.isArray(id) || typeof id !== "string") {
+      throw ApiError.badRequest("Invalid problem id");
+    }
+    const problem = await prisma.problem.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        testcases: true,
+        hiddenTestcases: true,
+      },
+    });
+    if (!problem) throw ApiError.notFound("Problem not found");
+    const response = ApiResponse.success(
+      problem,
+      "Test cases fetched successfully",
+    );
+    res.status(response.statusCode).json(response);
+  },
+);
+
 // Delete a problem (admin/teacher only)
 export const deleteProblem = asyncHandler(
   async (req: Request, res: Response) => {

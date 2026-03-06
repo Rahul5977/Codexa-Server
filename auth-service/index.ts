@@ -6,6 +6,15 @@ import { disconnectDB } from "./libs/prisma.js";
 import { kafkaProducer } from "./libs/kafka.js";
 import type { Server } from "http";
 
+// Verify critical environment variables are loaded
+if (!process.env.JWT_ACCESS_SECRET && !process.env.JWT_SECRET) {
+  console.error("❌ ERROR: JWT_ACCESS_SECRET or JWT_SECRET not found in environment!");
+  console.error("Please check your .env file in auth-service directory");
+  process.exit(1);
+}
+
+console.log("✅ JWT secrets loaded from environment");
+
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || "development";
 

@@ -191,6 +191,98 @@ export const createAssignment = asyncHandler(async (req, res) => {
 });
 
 /**
+ * @route   PATCH /api/classroom/assignment/:assignmentId/deadline
+ * @desc    Update assignment deadline (deadline extension)
+ * @access  Private (Teacher of the classroom)
+ */
+export const updateAssignmentDeadline = asyncHandler(async (req, res) => {
+  const { assignmentId } = req.params;
+  const { deadline } = req.body;
+
+  if (!req.user) {
+    throw new ApiError(401, "Authentication required");
+  }
+
+  if (!deadline) {
+    throw new ApiError(400, "Deadline is required");
+  }
+
+  // Validate deadline is a valid date
+  const newDeadline = new Date(deadline);
+  if (isNaN(newDeadline.getTime())) {
+    throw new ApiError(400, "Invalid deadline format");
+  }
+
+  // Get assignment and verify teacher owns it
+  const assignment = await prisma.assignment.findUnique({
+    where: { id: assignmentId },
+    include: {
+      classroom: {
+        select: { id: true, teacherId: true },
+      },
+    },
+  });
+
+  if (!assignment) {
+    throw new ApiError(404, "Assignment not found");
+  }
+
+  if (assignment.classroom.teacherId !== req.user.userId) {
+    throw new ApiError(
+      403,
+      "Access denied. Only the teacher can update the assignment",
+    );
+  }
+
+  // Update assignment deadline
+  const updatedAssignment = await prisma.assignment.update({
+    where: { id: assignmentId },
+    data: { deadline: newDeadline },
+    include: {
+      problems: {
+        include: {
+          problem: {
+            select: {
+              id: true,
+              title: true,
+              difficulty: true,
+              tags: true,
+            },
+          },
+        },
+        orderBy: { order: "asc" },
+      },
+      classroom: {
+        select: {
+          id: true,
+          name: true,
+          teacher: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      },
+      _count: {
+        select: {
+          submissions: true,
+        },
+      },
+    },
+  });
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      { assignment: updatedAssignment },
+      "Assignment deadline updated successfully",
+    ),
+  );
+});
+
+/**
  * @route   POST /api/classroom/:classroomId/exam
  * @desc    Create a new exam for a classroom
  * @access  Private (Teacher of the classroom)
@@ -511,6 +603,13 @@ export const getAssignmentDetails = asyncHandler(async (req, res) => {
           id: true,
           name: true,
           teacherId: true,
+          teacher: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
         },
       },
       problems: {
@@ -891,6 +990,71 @@ export const getMySubmission = asyncHandler(async (req, res) => {
 });
 
 /**
+ * @route   GET /api/classroom/assignment/:assignmentId/student/:studentId/submission
+ * @desc    Get a specific student's submission (Teacher only)
+ * @access  Private (Teacher of the classroom)
+ */
+export const getStudentSubmission = asyncHandler(async (req, res) => {
+  const { assignmentId, studentId } = req.params;
+
+  if (!req.user) {
+    throw new ApiError(401, "Authentication required");
+  }
+
+  // Get assignment and verify teacher
+  const assignment = await prisma.assignment.findUnique({
+    where: { id: assignmentId },
+    include: {
+      classroom: { select: { id: true, teacherId: true } },
+    },
+  });
+
+  if (!assignment) {
+    throw new ApiError(404, "Assignment not found");
+  }
+
+  if (assignment.classroom.teacherId !== req.user.userId) {
+    throw new ApiError(
+      403,
+      "Access denied. Only the teacher can view student submissions",
+    );
+  }
+
+  // Get the student's submission
+  const submission = await prisma.assignmentSubmission.findUnique({
+    where: {
+      assignmentId_studentId: {
+        assignmentId,
+        studentId,
+      },
+    },
+    include: {
+      student: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+    },
+  });
+
+  if (!submission) {
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, null, "No submission found for this student"),
+      );
+  }
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(200, { submission }, "Student submission retrieved successfully"),
+    );
+});
+
+/**
  * @route   GET /api/classroom/assignment/:assignmentId/submissions
  * @desc    Get all submissions for an assignment (Teacher only)
  * @access  Private (Teacher of the classroom)
@@ -948,6 +1112,78 @@ export const getAssignmentSubmissions = asyncHandler(async (req, res) => {
         submissions,
       },
       "Assignment submissions retrieved successfully",
+    ),
+  );
+});
+
+/**
+ * @route   PATCH /api/classroom/assignment/:assignmentId/submission/:submissionId/grade
+ * @desc    Grade a student's assignment submission
+ * @access  Private (Teacher of the classroom)
+ */
+export const gradeAssignmentSubmission = asyncHandler(async (req, res) => {
+  const { assignmentId, submissionId } = req.params;
+  const { grade, feedback } = req.body;
+
+  if (!req.user) {
+    throw new ApiError(401, "Authentication required");
+  }
+
+  // Validate grade
+  if (grade !== undefined && (typeof grade !== 'number' || grade < 0 || grade > 100)) {
+    throw new ApiError(400, "Grade must be a number between 0 and 100");
+  }
+
+  // Get submission and verify assignment
+  const submission = await prisma.assignmentSubmission.findUnique({
+    where: { id: submissionId },
+    include: {
+      assignment: {
+        include: {
+          classroom: { select: { id: true, teacherId: true } },
+        },
+      },
+    },
+  });
+
+  if (!submission) {
+    throw new ApiError(404, "Submission not found");
+  }
+
+  if (submission.assignmentId !== assignmentId) {
+    throw new ApiError(400, "Submission does not belong to this assignment");
+  }
+
+  if (submission.assignment.classroom.teacherId !== req.user.userId) {
+    throw new ApiError(
+      403,
+      "Access denied. Only the teacher can grade submissions",
+    );
+  }
+
+  // Update grade and feedback
+  const updatedSubmission = await prisma.assignmentSubmission.update({
+    where: { id: submissionId },
+    data: {
+      grade: grade !== undefined ? grade : submission.grade,
+      feedback: feedback !== undefined ? feedback : submission.feedback,
+    },
+    include: {
+      student: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+    },
+  });
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      { submission: updatedSubmission },
+      "Submission graded successfully",
     ),
   );
 });

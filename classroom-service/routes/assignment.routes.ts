@@ -1,6 +1,7 @@
 import express from "express";
 import {
   createAssignment,
+  updateAssignmentDeadline,
   createExam,
   createProblem,
   getClassroomAssignments,
@@ -10,7 +11,9 @@ import {
   submitAssignment,
   submitExam,
   getMySubmission,
+  getStudentSubmission,
   getAssignmentSubmissions,
+  gradeAssignmentSubmission,
   getExamSubmissions,
   getProblems,
   saveDraft,
@@ -43,6 +46,12 @@ assignmentRoutes.get(
   authenticate,
   getAssignmentDetails,
 );
+assignmentRoutes.patch(
+  "/assignment/:assignmentId/deadline",
+  authenticate,
+  isTeacher,
+  updateAssignmentDeadline,
+);
 assignmentRoutes.post(
   "/assignment/:assignmentId/submit",
   authenticate,
@@ -54,10 +63,22 @@ assignmentRoutes.get(
   getMySubmission,
 );
 assignmentRoutes.get(
+  "/assignment/:assignmentId/student/:studentId/submission",
+  authenticate,
+  isTeacher,
+  getStudentSubmission,
+);
+assignmentRoutes.get(
   "/assignment/:assignmentId/submissions",
   authenticate,
   isTeacher,
   getAssignmentSubmissions,
+);
+assignmentRoutes.patch(
+  "/assignment/:assignmentId/submission/:submissionId/grade",
+  authenticate,
+  isTeacher,
+  gradeAssignmentSubmission,
 );
 
 // Assignment draft management

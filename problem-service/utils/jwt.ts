@@ -1,10 +1,6 @@
 import jwt from "jsonwebtoken";
 import type { SignOptions, JwtPayload } from "jsonwebtoken";
 
-const JWT_ACCESS_SECRET =
-  process.env.JWT_ACCESS_SECRET || "your-access-secret-key";
-const JWT_REFRESH_SECRET =
-  process.env.JWT_REFRESH_SECRET || "your-refresh-secret-key";
 const ACCESS_TOKEN_EXPIRY = "15m";
 const REFRESH_TOKEN_EXPIRY = "7d";
 
@@ -21,26 +17,43 @@ export interface TokenPair {
   refreshToken: string;
 }
 
+// Helper functions to get secrets dynamically
+const getAccessSecret = () => {
+  const secret = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("JWT_ACCESS_SECRET or JWT_SECRET environment variable is not set");
+  }
+  return secret;
+};
+
+const getRefreshSecret = () => {
+  const secret = process.env.JWT_REFRESH_SECRET || process.env.REFRESH_TOKEN_SECRET;
+  if (!secret) {
+    throw new Error("JWT_REFRESH_SECRET or REFRESH_TOKEN_SECRET environment variable is not set");
+  }
+  return secret;
+};
+
 // Generate Access Token
 export function generateAccessToken(payload: TokenPayload): string {
   const options: SignOptions = {
     expiresIn: ACCESS_TOKEN_EXPIRY,
-    issuer: "codexa-auth-service",
+    issuer: "codexa-problem-service",
     subject: payload.userId,
   };
 
-  return jwt.sign(payload, JWT_ACCESS_SECRET, options);
+  return jwt.sign(payload, getAccessSecret(), options);
 }
 
 // Generate Refresh Token
 export function generateRefreshToken(payload: TokenPayload): string {
   const options: SignOptions = {
     expiresIn: REFRESH_TOKEN_EXPIRY,
-    issuer: "codexa-auth-service",
+    issuer: "codexa-problem-service",
     subject: payload.userId,
   };
 
-  return jwt.sign(payload, JWT_REFRESH_SECRET, options);
+  return jwt.sign(payload, getRefreshSecret(), options);
 }
 
 // Generate both tokens
@@ -53,12 +66,12 @@ export function generateTokenPair(payload: TokenPayload): TokenPair {
 
 // Verify Access Token
 export function verifyAccessToken(token: string): DecodedToken {
-  return jwt.verify(token, JWT_ACCESS_SECRET) as DecodedToken;
+  return jwt.verify(token, getAccessSecret()) as DecodedToken;
 }
 
 // Verify Refresh Token
 export function verifyRefreshToken(token: string): DecodedToken {
-  return jwt.verify(token, JWT_REFRESH_SECRET) as DecodedToken;
+  return jwt.verify(token, getRefreshSecret()) as DecodedToken;
 }
 
 // Extract token from Authorization header

@@ -2,8 +2,21 @@ import jwt from "jsonwebtoken";
 import type { SignOptions, JwtPayload } from "jsonwebtoken";
 
 // Function to get secrets dynamically
-const getAccessSecret = () => process.env.JWT_ACCESS_SECRET || "your-access-secret-key";
-const getRefreshSecret = () => process.env.JWT_REFRESH_SECRET || "your-refresh-secret-key";
+const getAccessSecret = () => {
+  const secret = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("JWT_ACCESS_SECRET or JWT_SECRET environment variable is not set");
+  }
+  return secret;
+};
+
+const getRefreshSecret = () => {
+  const secret = process.env.JWT_REFRESH_SECRET || process.env.REFRESH_TOKEN_SECRET;
+  if (!secret) {
+    throw new Error("JWT_REFRESH_SECRET or REFRESH_TOKEN_SECRET environment variable is not set");
+  }
+  return secret;
+};
 
 const ACCESS_TOKEN_EXPIRY = "15m";
 const REFRESH_TOKEN_EXPIRY = "7d";

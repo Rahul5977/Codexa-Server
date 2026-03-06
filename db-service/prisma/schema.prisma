@@ -313,6 +313,10 @@ model AssignmentSubmission {
   // Structure: { "problemId1": { "code": "...", "language": "python" }, ... }
   solutions Json
 
+  // Grading fields
+  grade    Int?    // 0-100, null if not graded yet
+  feedback String? // Teacher's feedback
+
   submittedAt DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
