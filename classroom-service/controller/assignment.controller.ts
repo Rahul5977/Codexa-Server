@@ -324,7 +324,7 @@ export const createExam = asyncHandler(async (req, res) => {
           title: validatedData.title,
           subtitle: validatedData.subtitle,
           description: validatedData.description,
-          deadline: validatedData.deadline,
+          startTime: validatedData.startTime,
           duration: validatedData.duration,
           classroomId,
         },
@@ -690,7 +690,13 @@ export const getExamDetails = asyncHandler(async (req, res) => {
               constraints: true,
               companies: true,
               hints: true,
-              // testcases excluded for security
+              // Include visible test cases and function metadata for code execution
+              testcases: true,
+              functionName: true,
+              parameters: true,
+              returnType: true,
+              codeStubs: true,
+              // hiddenTestcases excluded for security (only used for grading)
             },
           },
         },
@@ -931,6 +937,361 @@ export const submitExam = asyncHandler(async (req, res) => {
     }
     throw error;
   }
+});
+
+/**
+ * @route   POST /api/classroom/exam/:examId/start
+ * @desc    Start an exam (creates initial submission and begins timer)
+ * @access  Private (Enrolled students only)
+ */
+export const startExam = asyncHandler(async (req, res) => {
+  const { examId } = req.params;
+
+  if (!req.user) {
+    throw new ApiError(401, "Authentication required");
+  }
+
+  // Get exam with classroom info
+  const exam = await prisma.exam.findUnique({
+    where: { id: examId },
+    include: {
+      classroom: { select: { id: true } },
+      problems: { select: { problemId: true } },
+    },
+  });
+
+  if (!exam) {
+    throw new ApiError(404, "Exam not found");
+  }
+
+  // Verify student enrollment
+  await verifyStudentEnrollment(exam.classroom.id, req.user.userId);
+
+  // Check if exam has started
+  if (new Date() < exam.startTime) {
+    throw new ApiError(400, "Exam has not started yet");
+  }
+
+  // Check if exam has ended (startTime + duration)
+  const examEndTime = new Date(exam.startTime.getTime() + exam.duration * 60000);
+  if (new Date() > examEndTime) {
+    throw new ApiError(400, "Exam time has ended");
+  }
+
+  // Check if student already has a submission (only one attempt allowed)
+  const existingSubmission = await prisma.examSubmission.findUnique({
+    where: {
+      examId_studentId: {
+        examId,
+        studentId: req.user.userId,
+      },
+    },
+  });
+
+  if (existingSubmission) {
+    throw new ApiError(400, "You have already started this exam. Only one attempt is allowed.");
+  }
+
+  // Create initial submission
+  const submission = await prisma.examSubmission.create({
+    data: {
+      examId,
+      studentId: req.user.userId,
+      solutions: {},
+      startedAt: new Date(),
+    },
+    include: {
+      exam: {
+        select: {
+          id: true,
+          title: true,
+          startTime: true,
+          duration: true,
+        },
+      },
+    },
+  });
+
+  res
+    .status(201)
+    .json(
+      new ApiResponse(201, { submission }, "Exam started successfully"),
+    );
+});
+
+/**
+ * @route   GET /api/classroom/exam/:examId/my-submission
+ * @desc    Get current user's exam submission
+ * @access  Private (Enrolled students)
+ */
+export const getMyExamSubmission = asyncHandler(async (req, res) => {
+  const { examId } = req.params;
+
+  if (!req.user) {
+    throw new ApiError(401, "Authentication required");
+  }
+
+  // Get exam with classroom info
+  const exam = await prisma.exam.findUnique({
+    where: { id: examId },
+    include: {
+      classroom: { select: { id: true } },
+    },
+  });
+
+  if (!exam) {
+    throw new ApiError(404, "Exam not found");
+  }
+
+  // Verify student enrollment
+  await verifyStudentEnrollment(exam.classroom.id, req.user.userId);
+
+  // Get submission
+  const submission = await prisma.examSubmission.findUnique({
+    where: {
+      examId_studentId: {
+        examId,
+        studentId: req.user.userId,
+      },
+    },
+  });
+
+  if (!submission) {
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, null, "No submission found for this exam"),
+      );
+  }
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(200, { submission }, "Submission retrieved successfully"),
+    );
+});
+
+/**
+ * @route   PUT /api/classroom/exam/:examId/submission
+ * @desc    Update exam submission (auto-save during exam)
+ * @access  Private (Enrolled students)
+ */
+export const updateExamSubmission = asyncHandler(async (req, res) => {
+  try {
+    const { examId } = req.params;
+    const validatedData: SubmitExamInput = submitExamSchema.parse(req.body);
+
+    if (!req.user) {
+      throw new ApiError(401, "Authentication required");
+    }
+
+    // Get exam submission
+    const submission = await prisma.examSubmission.findUnique({
+      where: {
+        examId_studentId: {
+          examId,
+          studentId: req.user.userId,
+        },
+      },
+      include: {
+        exam: {
+          select: {
+            startTime: true,
+            duration: true,
+          },
+        },
+      },
+    });
+
+    if (!submission) {
+      throw new ApiError(404, "Exam submission not found. Please start the exam first.");
+    }
+
+    // Check if exam has finished
+    if (submission.finishedAt) {
+      throw new ApiError(400, "Exam has already been finished");
+    }
+
+    // Check if time limit exceeded
+    const examEndTime = new Date(submission.startedAt.getTime() + submission.exam.duration * 60000);
+    if (new Date() > examEndTime) {
+      throw new ApiError(400, "Exam time limit has been exceeded");
+    }
+
+    // Update submission
+    const updatedSubmission = await prisma.examSubmission.update({
+      where: {
+        examId_studentId: {
+          examId,
+          studentId: req.user.userId,
+        },
+      },
+      data: {
+        solutions: validatedData.solutions,
+        updatedAt: new Date(),
+      },
+    });
+
+    res
+      .status(200)
+      .json(
+        new ApiResponse(200, { submission: updatedSubmission }, "Submission updated successfully"),
+      );
+  } catch (error) {
+    if (error instanceof ZodError) {
+      const formattedErrors = formatZodErrors(error);
+      throw new ApiError(
+        400,
+        "Validation failed",
+        Object.values(formattedErrors),
+      );
+    }
+    throw error;
+  }
+});
+
+/**
+ * @route   POST /api/classroom/exam/:examId/finish
+ * @desc    Finish exam (manual submit or auto-submit on timeout)
+ * @access  Private (Enrolled students)
+ */
+export const finishExam = asyncHandler(async (req, res) => {
+  const { examId } = req.params;
+
+  if (!req.user) {
+    throw new ApiError(401, "Authentication required");
+  }
+
+  // Get exam submission
+  const submission = await prisma.examSubmission.findUnique({
+    where: {
+      examId_studentId: {
+        examId,
+        studentId: req.user.userId,
+      },
+    },
+    include: {
+      exam: {
+        select: {
+          id: true,
+          title: true,
+          startTime: true,
+          duration: true,
+        },
+      },
+    },
+  });
+
+  if (!submission) {
+    throw new ApiError(404, "Exam submission not found. Please start the exam first.");
+  }
+
+  // Check if already finished
+  if (submission.finishedAt) {
+    throw new ApiError(400, "Exam has already been finished");
+  }
+
+  // Update submission to mark as finished
+  const updatedSubmission = await prisma.examSubmission.update({
+    where: {
+      examId_studentId: {
+        examId,
+        studentId: req.user.userId,
+      },
+    },
+    data: {
+      submittedAt: new Date(),
+      finishedAt: new Date(),
+    },
+    include: {
+      exam: {
+        select: {
+          id: true,
+          title: true,
+        },
+      },
+    },
+  });
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(200, { submission: updatedSubmission }, "Exam finished successfully"),
+    );
+});
+
+/**
+ * @route   POST /api/classroom/exam/:examId/violation
+ * @desc    Log proctoring violation
+ * @access  Private (Student taking exam)
+ */
+export const logProctoringViolation = asyncHandler(async (req, res) => {
+  const { examId } = req.params;
+  const { type, timestamp, description } = req.body;
+
+  if (!req.user) {
+    throw new ApiError(401, "Authentication required");
+  }
+
+  // Get current submission
+  const submission = await prisma.examSubmission.findUnique({
+    where: {
+      examId_studentId: {
+        examId,
+        studentId: req.user.userId,
+      },
+    },
+  });
+
+  if (!submission) {
+    throw new ApiError(404, "Exam submission not found");
+  }
+
+  if (submission.finishedAt) {
+    throw new ApiError(400, "Exam has already been finished");
+  }
+
+  // Get existing violations
+  const violations = (submission.proctoringViolations as any[]) || [];
+  
+  // Add new violation
+  violations.push({
+    type,
+    timestamp: timestamp || new Date().toISOString(),
+    description: description || "",
+  });
+
+  // Update counters based on violation type
+  const updateData: any = {
+    proctoringViolations: violations,
+    warningCount: submission.warningCount + 1,
+  };
+
+  if (type === "TAB_SWITCH") {
+    updateData.tabSwitchCount = submission.tabSwitchCount + 1;
+  } else if (type === "FULLSCREEN_EXIT") {
+    updateData.fullscreenExitCount = submission.fullscreenExitCount + 1;
+  }
+
+  // Update submission
+  const updatedSubmission = await prisma.examSubmission.update({
+    where: {
+      examId_studentId: {
+        examId,
+        studentId: req.user.userId,
+      },
+    },
+    data: updateData,
+  });
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(200, { 
+        submission: updatedSubmission,
+        violationCount: violations.length,
+      }, "Violation logged"),
+    );
 });
 
 /**

@@ -103,7 +103,7 @@ export const createExamSchema = z.object({
     .string()
     .max(1000, "Description must be at most 1000 characters")
     .optional(),
-  deadline: z
+  startTime: z
     .string()
     .refine((date) => !isNaN(Date.parse(date)), "Invalid date format")
     .transform((date) => new Date(date)),
@@ -111,8 +111,7 @@ export const createExamSchema = z.object({
     .number()
     .int()
     .min(1, "Duration must be at least 1 minute")
-    .max(600, "Duration cannot exceed 600 minutes")
-    .optional(),
+    .max(600, "Duration cannot exceed 600 minutes"),
   problems: z
     .array(
       z.object({

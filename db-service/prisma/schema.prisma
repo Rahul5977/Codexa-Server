@@ -357,8 +357,8 @@ model Exam {
   title       String
   subtitle    String?
   description String?
-  deadline    DateTime
-  duration    Int? // Duration in minutes (optional)
+  startTime   DateTime // When exam becomes available to start
+  duration    Int      // Duration in minutes (required)
 
   classroomId String
   classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
@@ -371,7 +371,7 @@ model Exam {
   submissions ExamSubmission[]
 
   @@index([classroomId])
-  @@index([deadline])
+  @@index([startTime])
   @@map("exams")
 }
 
@@ -397,10 +397,26 @@ model ExamSubmission {
 
   // JSON containing solutions for each problem
   // Structure: { "problemId1": { "code": "...", "language": "python" }, ... }
-  solutions Json
+  solutions Json @default("{}")
 
-  submittedAt DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  // Exam timing
+  startedAt   DateTime  @default(now()) // When student started the exam
+  submittedAt DateTime? // When student submitted (null if auto-submitted)
+  finishedAt  DateTime? // When exam ended (submitted or timed out)
+
+  // Grading fields
+  grade    Int?    // 0-100, null if not graded yet
+  feedback String? // Teacher's feedback
+
+  // Proctoring fields
+  proctoringViolations Json?   @default("[]") // Array of violation events
+  tabSwitchCount       Int     @default(0)    // Number of tab switches
+  fullscreenExitCount  Int     @default(0)    // Number of fullscreen exits
+  warningCount         Int     @default(0)    // Total warnings issued
+  autoSubmitted        Boolean @default(false) // Whether exam was auto-submitted due to violations
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   exam    Exam @relation(fields: [examId], references: [id], onDelete: Cascade)
   student User @relation(fields: [studentId], references: [id])

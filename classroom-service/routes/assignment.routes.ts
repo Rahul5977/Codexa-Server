@@ -20,6 +20,11 @@ import {
   getDraft,
   getAssignmentDrafts,
   deleteAssignmentDrafts,
+  startExam,
+  getMyExamSubmission,
+  updateExamSubmission,
+  finishExam,
+  logProctoringViolation,
 } from "../controller/assignment.controller.js";
 import { authenticate, isTeacher } from "../middleware/auth.middleware.js";
 
@@ -112,6 +117,11 @@ assignmentRoutes.post(
 );
 assignmentRoutes.get("/:classroomId/exams", authenticate, getClassroomExams);
 assignmentRoutes.get("/exam/:examId", authenticate, getExamDetails);
+assignmentRoutes.post("/exam/:examId/start", authenticate, startExam);
+assignmentRoutes.get("/exam/:examId/my-submission", authenticate, getMyExamSubmission);
+assignmentRoutes.put("/exam/:examId/submission", authenticate, updateExamSubmission);
+assignmentRoutes.post("/exam/:examId/finish", authenticate, finishExam);
+assignmentRoutes.post("/exam/:examId/violation", authenticate, logProctoringViolation);
 assignmentRoutes.post("/exam/:examId/submit", authenticate, submitExam);
 assignmentRoutes.get(
   "/exam/:examId/submissions",
