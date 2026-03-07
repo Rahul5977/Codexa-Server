@@ -15,6 +15,7 @@ import {
   getAssignmentSubmissions,
   gradeAssignmentSubmission,
   getExamSubmissions,
+  updateExamGrade,
   getProblems,
   saveDraft,
   getDraft,
@@ -128,6 +129,12 @@ assignmentRoutes.get(
   authenticate,
   isTeacher,
   getExamSubmissions,
+);
+assignmentRoutes.put(
+  "/exam/:examId/grade/:studentId",
+  authenticate,
+  isTeacher,
+  updateExamGrade,
 );
 
 export default assignmentRoutes;

@@ -1612,6 +1612,77 @@ export const getExamSubmissions = asyncHandler(async (req, res) => {
 });
 
 /**
+ * @route   PUT /api/classroom/exam/:examId/grade/:studentId
+ * @desc    Update grade and feedback for an exam submission (Teacher only)
+ * @access  Private (Teacher of the classroom)
+ */
+export const updateExamGrade = asyncHandler(async (req, res) => {
+  const { examId, studentId } = req.params;
+  const { grade, feedback } = req.body;
+
+  if (!req.user) {
+    throw new ApiError(401, "Authentication required");
+  }
+
+  // Get exam and verify teacher
+  const exam = await prisma.exam.findUnique({
+    where: { id: examId },
+    include: {
+      classroom: { select: { id: true, teacherId: true } },
+    },
+  });
+
+  if (!exam) {
+    throw new ApiError(404, "Exam not found");
+  }
+
+  if (exam.classroom.teacherId !== req.user.userId) {
+    throw new ApiError(
+      403,
+      "Access denied. Only the teacher can grade submissions",
+    );
+  }
+
+  // Validate grade if provided
+  if (grade !== undefined && grade !== null) {
+    if (typeof grade !== "number" || grade < 0 || grade > 100) {
+      throw new ApiError(400, "Grade must be a number between 0 and 100");
+    }
+  }
+
+  // Update the submission
+  const updatedSubmission = await prisma.examSubmission.update({
+    where: {
+      examId_studentId: {
+        examId,
+        studentId,
+      },
+    },
+    data: {
+      grade: grade !== undefined ? grade : undefined,
+      feedback: feedback !== undefined ? feedback : undefined,
+    },
+    include: {
+      student: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+    },
+  });
+
+  res.status(200).json(
+    new ApiResponse(
+      200,
+      { submission: updatedSubmission },
+      "Grade updated successfully",
+    ),
+  );
+});
+
+/**
  * @route   POST /api/classroom/assignment/:assignmentId/draft
  * @desc    Save/update a draft for an assignment problem
  * @access  Private (Enrolled students only)
