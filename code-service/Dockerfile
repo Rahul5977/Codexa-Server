@@ -12,7 +12,7 @@ COPY package.json package-lock.json ./
 COPY db-service ./db-service
 
 # Copy the Service
-COPY utils-service ./utils-service
+COPY code-service ./code-service
 
 # Install Dependencies
 RUN npm ci
@@ -36,14 +36,14 @@ COPY --from=base /app/package.json ./package.json
 # Copy db-service (for Prisma client)
 COPY --from=base /app/db-service ./db-service
 
-# Copy utils-service node_modules from base
-COPY --from=base /app/utils-service/node_modules ./utils-service/node_modules
+# Copy code-service node_modules from base
+COPY --from=base /app/code-service/node_modules ./code-service/node_modules
 
 # The source code will be mounted as a volume
-# Install nodemon and tsx globally for hot reload
+# Install nodemon globally for hot reload
 RUN npm install -g nodemon tsx
 
-WORKDIR /app/utils-service
+WORKDIR /app/code-service
 
 # Development command with hot reload
 CMD ["npm", "run", "dev"]
@@ -57,7 +57,7 @@ FROM base AS builder
 WORKDIR /app/db-service
 RUN npm run build
 
-WORKDIR /app/utils-service
+WORKDIR /app/code-service
 RUN npm run build
 
 # ==========================================
@@ -77,10 +77,10 @@ COPY --from=builder /app/db-service/package.json ./db-service/package.json
 COPY --from=builder /app/db-service/prisma ./db-service/prisma
 
 # Copy the built Service
-COPY --from=builder /app/utils-service/dist ./utils-service/dist
-COPY --from=builder /app/utils-service/package.json ./utils-service/package.json
-COPY --from=builder /app/utils-service/node_modules ./utils-service/node_modules
+COPY --from=builder /app/code-service/dist ./code-service/dist
+COPY --from=builder /app/code-service/package.json ./code-service/package.json
+COPY --from=builder /app/code-service/node_modules ./code-service/node_modules
 
-WORKDIR /app/utils-service
+WORKDIR /app/code-service
 
-CMD ["node", "dist/index.js"]
+CMD ["npm", "start"]

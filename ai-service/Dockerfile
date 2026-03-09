@@ -12,14 +12,13 @@ COPY package.json package-lock.json ./
 COPY db-service ./db-service
 
 # Copy the Service
-COPY utils-service ./utils-service
+COPY ai-service ./ai-service
 
 # Install Dependencies
 RUN npm ci
 
 # Generate Prisma Client
 WORKDIR /app/db-service
-ENV DATABASE_URL="postgresql://user:password@postgres:5432/codexa?schema=public"
 RUN npx prisma generate
 
 # ==========================================
@@ -36,14 +35,11 @@ COPY --from=base /app/package.json ./package.json
 # Copy db-service (for Prisma client)
 COPY --from=base /app/db-service ./db-service
 
-# Copy utils-service node_modules from base
-COPY --from=base /app/utils-service/node_modules ./utils-service/node_modules
-
 # The source code will be mounted as a volume
 # Install nodemon and tsx globally for hot reload
 RUN npm install -g nodemon tsx
 
-WORKDIR /app/utils-service
+WORKDIR /app/ai-service
 
 # Development command with hot reload
 CMD ["npm", "run", "dev"]
@@ -57,8 +53,9 @@ FROM base AS builder
 WORKDIR /app/db-service
 RUN npm run build
 
-WORKDIR /app/utils-service
-RUN npm run build
+# ai-service may not have a build step, but we include it for consistency
+WORKDIR /app/ai-service
+RUN npm run build || true
 
 # ==========================================
 # STAGE 4: Production Image
@@ -76,11 +73,9 @@ COPY --from=builder /app/db-service/dist ./db-service/dist
 COPY --from=builder /app/db-service/package.json ./db-service/package.json
 COPY --from=builder /app/db-service/prisma ./db-service/prisma
 
-# Copy the built Service
-COPY --from=builder /app/utils-service/dist ./utils-service/dist
-COPY --from=builder /app/utils-service/package.json ./utils-service/package.json
-COPY --from=builder /app/utils-service/node_modules ./utils-service/node_modules
+# Copy the Service
+COPY --from=builder /app/ai-service ./ai-service
 
-WORKDIR /app/utils-service
+WORKDIR /app/ai-service
 
-CMD ["node", "dist/index.js"]
+CMD ["npm", "start"]

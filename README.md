@@ -116,7 +116,37 @@ The platform uses PostgreSQL with the following main entities:
    npm start --workspace=utils-service
    ```
 
-### Docker Deployment
+### Docker Deployment (Recommended)
+
+The easiest way to get started is using Docker! All services are containerized with hot-reload support for development.
+
+#### Quick Start with Docker
+
+**Option 1: Interactive Script**
+```bash
+./start.sh
+```
+
+**Option 2: Docker Compose**
+```bash
+# Development mode (with hot-reload)
+docker-compose up -d
+
+# Production mode
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+**Option 3: Makefile Commands**
+```bash
+make up      # Start development services
+make logs    # View logs
+make down    # Stop services
+make help    # See all available commands
+```
+
+📚 **For detailed Docker documentation, see [DOCKER.md](./DOCKER.md)**
+
+#### Manual Setup
 
 To run the entire stack with Docker:
 
@@ -126,10 +156,15 @@ docker-compose up -d
 
 This will start:
 - PostgreSQL database
+- Redis cache
 - Kafka message broker
 - Auth Service (port 3000)
 - Utils Service (port 3001)
 - Problem Service (port 3002)
+- Classroom Service (port 3003)
+- Code Service (port 3004)
+- Analytics Service (port 3005)
+- AI Service (port 3006)
 
 ## 📝 Service Details
 

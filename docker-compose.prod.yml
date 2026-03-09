@@ -10,11 +10,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d codexa"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    restart: always
 
   redis:
     image: redis:7-alpine
@@ -23,11 +19,7 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    restart: always
 
   kafka:
     image: apache/kafka:3.7.0
@@ -47,53 +39,42 @@ services:
       - KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1
       - KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0
       - CLUSTER_ID=MkU3OEVBNTcwNTJENDM2Qk
-    healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 9092 || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    restart: always
 
   auth-service:
     build:
       context: .
       dockerfile: auth-service/DockerFile
-      target: ${BUILD_TARGET:-development}
+      target: production
     container_name: codexa-auth-service
     ports:
-      - "8000:8000"
+      - "3000:3000"
     environment:
-      - PORT=8000
+      - PORT=3000
       - DATABASE_URL=${DATABASE_URL}
-      - NODE_ENV=${NODE_ENV:-development}
+      - NODE_ENV=production
       - KAFKA_BROKERS=kafka:9092
       - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
       - CORS_ORIGIN=${CORS_ORIGIN}
-      - FILE_UPLOAD_SERVICE_URL=http://utils-service:8001
-    volumes:
-      - ./auth-service:/app/auth-service
-      - ./db-service:/app/db-service
-      - /app/node_modules
-      - /app/auth-service/node_modules
+      - FILE_UPLOAD_SERVICE_URL=http://utils-service:3001
     depends_on:
-      postgres:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-    restart: unless-stopped
+      - postgres
+      - kafka
+    restart: always
 
   utils-service:
     build:
       context: .
       dockerfile: utils-service/DockerFile
-      target: ${BUILD_TARGET:-development}
+      target: production
     container_name: codexa-utils-service
     ports:
-      - "8001:8001"
+      - "3001:3001"
     environment:
-      - PORT=8001
+      - PORT=3001
       - DATABASE_URL=${DATABASE_URL}
-      - NODE_ENV=${NODE_ENV:-development}
+      - NODE_ENV=production
       - KAFKA_BROKERS=kafka:9092
       - KAFKA_GROUP_ID=utils-service-group
       - SMTP_HOST=${SMTP_HOST}
@@ -105,108 +86,111 @@ services:
       - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
       - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
       - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
-    volumes:
-      - ./utils-service:/app/utils-service
-      - ./db-service:/app/db-service
-      - /app/node_modules
-      - /app/utils-service/node_modules
     depends_on:
-      kafka:
-        condition: service_healthy
-    restart: unless-stopped
+      - kafka
+    restart: always
 
   problem-service:
     build:
       context: .
       dockerfile: problem-service/DockerFile
-      target: ${BUILD_TARGET:-development}
+      target: production
     container_name: codexa-problem-service
     ports:
-      - "8002:8002"
+      - "3002:3002"
     environment:
-      - PORT=8002
+      - PORT=3002
       - DATABASE_URL=${DATABASE_URL}
-      - NODE_ENV=${NODE_ENV:-development}
+      - NODE_ENV=production
       - KAFKA_BROKERS=kafka:9092
       - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
       - CORS_ORIGIN=${CORS_ORIGIN}
-    volumes:
-      - ./problem-service:/app/problem-service
-      - ./db-service:/app/db-service
-      - /app/node_modules
-      - /app/problem-service/node_modules
     depends_on:
-      postgres:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-    restart: unless-stopped
+      - postgres
+      - kafka
+    restart: always
 
   classroom-service:
     build:
       context: .
       dockerfile: classroom-service/DockerFile
-      target: ${BUILD_TARGET:-development}
+      target: production
     container_name: codexa-classroom-service
     ports:
-      - "8005:8005"
+      - "3003:3003"
     environment:
-      - PORT=8005
+      - PORT=3003
       - DATABASE_URL=${DATABASE_URL}
-      - NODE_ENV=${NODE_ENV:-development}
+      - NODE_ENV=production
       - KAFKA_BROKERS=kafka:9092
       - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
       - CORS_ORIGIN=${CORS_ORIGIN}
-    volumes:
-      - ./classroom-service:/app/classroom-service
-      - ./db-service:/app/db-service
-      - /app/node_modules
-      - /app/classroom-service/node_modules
     depends_on:
-      postgres:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-    restart: unless-stopped
+      - postgres
+      - kafka
+    restart: always
 
   code-service:
     build:
       context: .
       dockerfile: code-service/Dockerfile
-      target: ${BUILD_TARGET:-development}
+      target: production
     container_name: codexa-code-service
     ports:
-      - "8003:8003"
+      - "3004:3004"
     environment:
-      - PORT=8003
+      - PORT=3004
       - DATABASE_URL=${DATABASE_URL}
-      - NODE_ENV=${NODE_ENV:-development}
+      - NODE_ENV=production
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - JUDGE0_URL=${JUDGE0_URL:-http://judge0-v1131_server_1:2358}
+      - JUDGE0_API_URL=${JUDGE0_API_URL}
       - KAFKA_BROKERS=kafka:9092
-    volumes:
-      - ./code-service:/app/code-service
-      - ./db-service:/app/db-service
-      - /app/node_modules
-      - /app/code-service/node_modules
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - default
-      - judge0-network
-    restart: unless-stopped
+      - postgres
+      - redis
+    restart: always
 
-networks:
-  default:
-  judge0-network:
-    external: true
-    name: judge0-v1131_default
+  analytics-service:
+    build:
+      context: .
+      dockerfile: analytics-service/Dockerfile
+      target: production
+    container_name: codexa-analytics-service
+    ports:
+      - "3005:3005"
+    environment:
+      - PORT=3005
+      - DATABASE_URL=${DATABASE_URL}
+      - NODE_ENV=production
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+      - CORS_ORIGIN=${CORS_ORIGIN}
+    depends_on:
+      - postgres
+      - redis
+    restart: always
+
+  ai-service:
+    build:
+      context: .
+      dockerfile: ai-service/Dockerfile
+      target: production
+    container_name: codexa-ai-service
+    ports:
+      - "3006:3006"
+    environment:
+      - PORT=3006
+      - DATABASE_URL=${DATABASE_URL}
+      - NODE_ENV=production
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - CORS_ORIGIN=${CORS_ORIGIN}
+    depends_on:
+      - postgres
+    restart: always
 
 volumes:
   postgres_data:

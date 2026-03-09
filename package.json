@@ -1,14 +1,14 @@
 {
   "name": "codexa-root",
+  "version": "1.0.0",
   "private": true,
   "workspaces": [
     "auth-service",
     "utils-service",
     "problem-service",
+    "classroom-service",
     "code-service",
-    "db-service",
-    "ai-service",
-    "analytics-service"
+    "db-service"
   ],
   "scripts": {
     "dev": "concurrently \"npm start --workspace=auth-service\" \"npm start --workspace=code-service\""
