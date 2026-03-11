@@ -104,10 +104,10 @@ export const getSubmissionById = async (req: Request, res: Response) => {
   }
 };
 
-// GET /submissions?userId=...&problemId=...
-// Used for History
+// GET /submissions?userId=...&problemId=...&status=...&languageIds=...&includeUser=...
+// Used for History and Public Submissions
 export const getAllSubmissions = async (req: Request, res: Response) => {
-  const { userId, problemId } = req.query;
+  const { userId, problemId, status, languageIds, includeUser } = req.query;
 
   try {
     // Dynamic Filter Object
@@ -115,11 +115,25 @@ export const getAllSubmissions = async (req: Request, res: Response) => {
     const whereClause: any = {};
     if (userId) whereClause.userId = String(userId);
     if (problemId) whereClause.problemId = String(problemId);
+    if (status) whereClause.status = String(status);
+    
+    // Handle multiple language IDs (comma-separated or array)
+    if (languageIds) {
+      const langIds = typeof languageIds === 'string' 
+        ? languageIds.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id))
+        : Array.isArray(languageIds) 
+          ? languageIds.map(id => parseInt(String(id))).filter(id => !isNaN(id))
+          : [];
+      
+      if (langIds.length > 0) {
+        whereClause.languageId = { in: langIds };
+      }
+    }
 
     const submissions = await prisma.submission.findMany({
       where: whereClause,
       orderBy: { createdAt: "desc" }, // Newest first
-      take: 20, // Limit to 20 to prevent fetching 10,000 records
+      take: 100, // Increased limit for public submissions
       select: {
         id: true,
         status: true,
@@ -128,6 +142,17 @@ export const getAllSubmissions = async (req: Request, res: Response) => {
         createdAt: true,
         languageId: true,
         language: true,
+        userId: true,
+        // Include user information if requested
+        ...(includeUser === 'true' && {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            }
+          }
+        }),
         // We DON'T select 'code' here to keep the response light for list view
       },
     });
