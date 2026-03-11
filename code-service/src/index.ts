@@ -10,7 +10,7 @@ const app = express();
 app.use(express.json());
 app.use(cors())
 // Routes
-app.use("/submissions", submissionRoutes);
+app.use("/api/submissions", submissionRoutes);
 
 const PORT = process.env.PORT || 3003;
 const isDevelopment = process.env.NODE_ENV === "development";

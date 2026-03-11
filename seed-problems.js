@@ -82,6 +82,12 @@ const problems = [
       { name: "target", type: "int" },
     ],
     returnType: "int[]",
+    codeStubs: {
+      python: "def twoSum(nums, target):\n    # Write your code here\n    pass",
+      javascript: "function twoSum(nums, target) {\n    // Write your code here\n}",
+      cpp: "vector<int> twoSum(vector<int>& nums, int target) {\n    // Write your code here\n}",
+      java: "public int[] twoSum(int[] nums, int target) {\n    // Write your code here\n}"
+    },
   },
   {
     title: "Valid Parentheses",
@@ -152,6 +158,12 @@ const problems = [
     functionName: "isValid",
     parameters: [{ name: "s", type: "string" }],
     returnType: "boolean",
+    codeStubs: {
+      python: "def isValid(s):\n    # Write your code here\n    pass",
+      javascript: "function isValid(s) {\n    // Write your code here\n}",
+      cpp: "bool isValid(string s) {\n    // Write your code here\n}",
+      java: "public boolean isValid(String s) {\n    // Write your code here\n}"
+    },
   },
   {
     title: "Reverse Linked List",
@@ -214,6 +226,12 @@ const problems = [
     functionName: "reverseList",
     parameters: [{ name: "head", type: "ListNode" }],
     returnType: "ListNode",
+    codeStubs: {
+      python: "def reverseList(head):\n    # Write your code here\n    pass",
+      javascript: "function reverseList(head) {\n    // Write your code here\n}",
+      cpp: "ListNode* reverseList(ListNode* head) {\n    // Write your code here\n}",
+      java: "public ListNode reverseList(ListNode head) {\n    // Write your code here\n}"
+    },
   },
   {
     title: "Maximum Depth of Binary Tree",
@@ -272,6 +290,12 @@ const problems = [
     functionName: "maxDepth",
     parameters: [{ name: "root", type: "TreeNode" }],
     returnType: "int",
+    codeStubs: {
+      python: "def maxDepth(root):\n    # Write your code here\n    pass",
+      javascript: "function maxDepth(root) {\n    // Write your code here\n}",
+      cpp: "int maxDepth(TreeNode* root) {\n    // Write your code here\n}",
+      java: "public int maxDepth(TreeNode root) {\n    // Write your code here\n}"
+    },
   },
   {
     title: "Climbing Stairs",
@@ -328,6 +352,12 @@ const problems = [
     functionName: "climbStairs",
     parameters: [{ name: "n", type: "int" }],
     returnType: "int",
+    codeStubs: {
+      python: "def climbStairs(n):\n    # Write your code here\n    pass",
+      javascript: "function climbStairs(n) {\n    // Write your code here\n}",
+      cpp: "int climbStairs(int n) {\n    // Write your code here\n}",
+      java: "public int climbStairs(int n) {\n    // Write your code here\n}"
+    },
   },
 ];
 
