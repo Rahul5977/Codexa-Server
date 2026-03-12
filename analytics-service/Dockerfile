@@ -47,11 +47,6 @@ WORKDIR /app/analytics-service
 # Development command with hot reload (tsx watch)
 CMD ["npm", "run", "dev"]
 
-WORKDIR /app/analytics-service
-
-# Development command with hot reload (tsx watch)
-CMD ["npm", "run", "dev"]
-
 # ==========================================
 # STAGE 3: Builder (Production Build)
 # ==========================================
