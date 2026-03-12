@@ -20,6 +20,47 @@ export const handleSubmissionCompleted = async (
 
   await prisma.$transaction(async (tx) => {
     // -------------------------------------------------------
+    // Check if this is the first time solving this problem
+    // -------------------------------------------------------
+    let isFirstSolve = false;
+    if (isAccepted) {
+      const existingSolve = await tx.userSolvedProblem.findUnique({
+        where: {
+          userId_problemId: {
+            userId: data.userId,
+            problemId: data.problemId,
+          },
+        },
+      });
+
+      if (!existingSolve) {
+        // First time solving this problem!
+        isFirstSolve = true;
+        await tx.userSolvedProblem.create({
+          data: {
+            userId: data.userId,
+            problemId: data.problemId,
+            difficulty: data.difficulty,
+          },
+        });
+
+        // Update User model's solved counts
+        const userUpdate: any = {
+          totalSolved: { increment: 1 },
+        };
+
+        if (data.difficulty === "EASY") userUpdate.easyCount = { increment: 1 };
+        if (data.difficulty === "MEDIUM") userUpdate.mediumCount = { increment: 1 };
+        if (data.difficulty === "HARD") userUpdate.hardCount = { increment: 1 };
+
+        await tx.user.update({
+          where: { id: data.userId },
+          data: userUpdate,
+        });
+      }
+    }
+
+    // -------------------------------------------------------
     // 1. Find or Create UserAnalytics
     // -------------------------------------------------------
     let stats = await tx.userAnalytics.findUnique({
@@ -72,7 +113,8 @@ export const handleSubmissionCompleted = async (
       streakMax: Math.max(newStreak, stats.streakMax),
     };
 
-    if (isAccepted) {
+    // Only increment solved counts on first solve
+    if (isFirstSolve) {
       updateData.totalSolved = { increment: 1 };
       if (data.difficulty === "EASY") updateData.easySolved = { increment: 1 };
       if (data.difficulty === "MEDIUM")
@@ -125,8 +167,8 @@ export const handleSubmissionCompleted = async (
       });
 
       if (existing) {
-        const newAttempted = existing.attempted + 1;
-        const newSolved = isAccepted ? existing.solved + 1 : existing.solved;
+        // Only increment solved count on first solve
+        const newSolved = isFirstSolve ? existing.solved + 1 : existing.solved;
         const weight = DIFFICULTY_WEIGHT[data.difficulty] || 1.0;
         const strength =
           newAttempted > 0 ? (newSolved / newAttempted) * weight : 0;
@@ -136,7 +178,7 @@ export const handleSubmissionCompleted = async (
           solved: newSolved,
           strength,
         };
-        if (isAccepted) {
+        if (isFirstSolve) {
           if (data.difficulty === "EASY")
             diffUpdate.easySolved = existing.easySolved + 1;
           if (data.difficulty === "MEDIUM")
@@ -151,17 +193,18 @@ export const handleSubmissionCompleted = async (
         });
       } else {
         const weight = DIFFICULTY_WEIGHT[data.difficulty] || 1.0;
-        const strength = isAccepted ? (1 / 1) * weight : 0;
+        const strength = isFirstSolve ? (1 / 1) * weight : 0;
 
         await tx.topicAttempt.create({
           data: {
             userId: data.userId,
             topic,
             attempted: 1,
-            solved: isAccepted ? 1 : 0,
+            solved: isFirstSolve ? 1 : 0,
             strength,
-            easySolved: isAccepted && data.difficulty === "EASY" ? 1 : 0,
-            mediumSolved: isAccepted && data.difficulty === "MEDIUM" ? 1 : 0,
+            easySolved: isFirstSolve && data.difficulty === "EASY" ? 1 : 0,
+            mediumSolved: isFirstSolve && data.difficulty === "MEDIUM" ? 1 : 0,
+            hardSolved: isFirstSolveed && data.difficulty === "MEDIUM" ? 1 : 0,
             hardSolved: isAccepted && data.difficulty === "HARD" ? 1 : 0,
           },
         });

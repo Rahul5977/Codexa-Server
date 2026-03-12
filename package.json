@@ -8,6 +8,7 @@
     "problem-service",
     "classroom-service",
     "code-service",
+    "analytics-service",
     "db-service"
   ],
   "scripts": {

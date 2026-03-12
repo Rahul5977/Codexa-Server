@@ -8,18 +8,21 @@ WORKDIR /app
 # Copy Root Configs
 COPY package.json package-lock.json ./
 
-# Copy the Shared Library (db-service)
+# Copy all workspace services (needed for npm ci workspaces)
+COPY auth-service/package.json ./auth-service/package.json
+COPY utils-service/package.json ./utils-service/package.json
+COPY problem-service/package.json ./problem-service/package.json
+COPY classroom-service/package.json ./classroom-service/package.json
+COPY code-service/package.json ./code-service/package.json
 COPY db-service ./db-service
-
-# Copy the Service
 COPY analytics-service ./analytics-service
 
-# Install Dependencies
+# Install Dependencies (includes all workspace packages)
 RUN npm ci
 
-# Generate Prisma Client
+# Generate Prisma Client (provide dummy DATABASE_URL for build time)
 WORKDIR /app/db-service
-RUN npx prisma generate
+RUN DATABASE_URL="postgresql://dummy:dummy@dummy:5432/dummy" npx prisma generate
 
 # ==========================================
 # STAGE 2: Development Image (Hot Reload)
@@ -28,7 +31,7 @@ FROM node:20-alpine AS development
 
 WORKDIR /app
 
-# Copy node_modules from base
+# Copy node_modules from base (includes all workspace dependencies)
 COPY --from=base /app/node_modules ./node_modules
 COPY --from=base /app/package.json ./package.json
 
@@ -38,6 +41,11 @@ COPY --from=base /app/db-service ./db-service
 # The source code will be mounted as a volume
 # Install tsx globally for hot reload
 RUN npm install -g tsx
+
+WORKDIR /app/analytics-service
+
+# Development command with hot reload (tsx watch)
+CMD ["npm", "run", "dev"]
 
 WORKDIR /app/analytics-service
 
