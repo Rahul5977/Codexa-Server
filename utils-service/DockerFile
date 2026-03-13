@@ -33,8 +33,9 @@ WORKDIR /app
 COPY --from=base /app/node_modules ./node_modules
 COPY --from=base /app/package.json ./package.json
 
-# Copy db-service (for Prisma client)
+# Copy db-service (for Prisma client and @codexa/db package)
 COPY --from=base /app/db-service ./db-service
+COPY --from=base /app/db-service/node_modules ./db-service/node_modules
 
 # Copy utils-service node_modules from base
 COPY --from=base /app/utils-service/node_modules ./utils-service/node_modules

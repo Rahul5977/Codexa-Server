@@ -146,7 +146,7 @@ const processSubmission = async (job: Job<SubmissionJobData>) => {
       },
     });
 
-    // 9. Send analytics event via BullMQ
+    // 9. Send analytics event via BullMQ (includes code for AI analysis)
     await analyticsQueue.add("update-stats", {
       userId,
       problemId,
@@ -159,6 +159,7 @@ const processSubmission = async (job: Job<SubmissionJobData>) => {
       memoryKb: maxMemory,
       attemptNumber: attemptCount,
       createdAt: new Date().toISOString(),
+      code, // Passed through for background AI analysis in analytics-service
     });
 
     console.log(

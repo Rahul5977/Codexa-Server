@@ -12,14 +12,13 @@ COPY package.json package-lock.json ./
 COPY db-service ./db-service
 
 # Copy the Service
-COPY code-service ./code-service
+COPY analytics-service ./analytics-service
 
 # Install Dependencies
 RUN npm ci
 
 # Generate Prisma Client
 WORKDIR /app/db-service
-ENV DATABASE_URL="postgresql://user:password@postgres:5432/codexa?schema=public"
 RUN npx prisma generate
 
 # ==========================================
@@ -33,20 +32,16 @@ WORKDIR /app
 COPY --from=base /app/node_modules ./node_modules
 COPY --from=base /app/package.json ./package.json
 
-# Copy db-service (for Prisma client and @codexa/db package)
+# Copy db-service (for Prisma client)
 COPY --from=base /app/db-service ./db-service
-COPY --from=base /app/db-service/node_modules ./db-service/node_modules
-
-# Copy code-service node_modules from base
-COPY --from=base /app/code-service/node_modules ./code-service/node_modules
 
 # The source code will be mounted as a volume
-# Install nodemon globally for hot reload
-RUN npm install -g nodemon tsx
+# Install tsx globally for hot reload
+RUN npm install -g tsx
 
-WORKDIR /app/code-service
+WORKDIR /app/analytics-service
 
-# Development command with hot reload
+# Development command with hot reload (tsx watch)
 CMD ["npm", "run", "dev"]
 
 # ==========================================
@@ -58,7 +53,7 @@ FROM base AS builder
 WORKDIR /app/db-service
 RUN npm run build
 
-WORKDIR /app/code-service
+WORKDIR /app/analytics-service
 RUN npm run build
 
 # ==========================================
@@ -78,10 +73,10 @@ COPY --from=builder /app/db-service/package.json ./db-service/package.json
 COPY --from=builder /app/db-service/prisma ./db-service/prisma
 
 # Copy the built Service
-COPY --from=builder /app/code-service/dist ./code-service/dist
-COPY --from=builder /app/code-service/package.json ./code-service/package.json
-COPY --from=builder /app/code-service/node_modules ./code-service/node_modules
+COPY --from=builder /app/analytics-service/dist ./analytics-service/dist
+COPY --from=builder /app/analytics-service/package.json ./analytics-service/package.json
+COPY --from=builder /app/analytics-service/node_modules ./analytics-service/node_modules
 
-WORKDIR /app/code-service
+WORKDIR /app/analytics-service
 
 CMD ["npm", "start"]

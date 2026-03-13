@@ -8,7 +8,8 @@
     "problem-service",
     "classroom-service",
     "code-service",
-    "db-service"
+    "db-service",
+    "analytics-service"
   ],
   "scripts": {
     "dev": "concurrently \"npm start --workspace=auth-service\" \"npm start --workspace=code-service\""
