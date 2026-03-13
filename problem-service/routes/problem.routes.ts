@@ -6,6 +6,7 @@ import {
   getProblemById,
   getProblemTestCases,
   deleteProblem,
+  getProblemStats,
 } from "../controller/problem.controller.js";
 import { authenticate, authorize } from "../middleware/auth.middleware.js";
 
@@ -13,6 +14,7 @@ const router = Router();
 
 // Public routes
 router.get("/", getProblems);
+router.get("/stats", getProblemStats);
 router.get("/:id", getProblemById);
 
 // Protected routes (teacher only)

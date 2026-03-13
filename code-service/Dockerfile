@@ -37,6 +37,12 @@ COPY --from=base /app/package.json ./package.json
 COPY --from=base /app/db-service ./db-service
 COPY --from=base /app/db-service/node_modules ./db-service/node_modules
 
+# Build db-service to generate dist folder
+WORKDIR /app/db-service
+RUN npm run build
+
+WORKDIR /app
+
 # Copy code-service node_modules from base
 COPY --from=base /app/code-service/node_modules ./code-service/node_modules
 

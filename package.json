@@ -9,7 +9,8 @@
     "classroom-service",
     "code-service",
     "db-service",
-    "analytics-service"
+    "analytics-service",
+    "ai-analytics-service"
   ],
   "scripts": {
     "dev": "concurrently \"npm start --workspace=auth-service\" \"npm start --workspace=code-service\""

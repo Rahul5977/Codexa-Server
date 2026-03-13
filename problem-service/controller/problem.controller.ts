@@ -177,3 +177,28 @@ export const deleteProblem = asyncHandler(
     res.status(response.statusCode).json(response);
   },
 );
+
+// Get problem statistics (total count by difficulty)
+export const getProblemStats = asyncHandler(
+  async (_req: Request, res: Response) => {
+    const [totalCount, easyCount, mediumCount, hardCount] = await Promise.all([
+      prisma.problem.count(),
+      prisma.problem.count({ where: { difficulty: "EASY" } }),
+      prisma.problem.count({ where: { difficulty: "MEDIUM" } }),
+      prisma.problem.count({ where: { difficulty: "HARD" } }),
+    ]);
+
+    const stats = {
+      total: totalCount,
+      easy: easyCount,
+      medium: mediumCount,
+      hard: hardCount,
+    };
+
+    const response = ApiResponse.success(
+      stats,
+      "Problem statistics fetched successfully",
+    );
+    res.status(response.statusCode).json(response);
+  },
+);

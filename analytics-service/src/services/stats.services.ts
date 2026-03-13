@@ -1,6 +1,27 @@
 import { prisma, Prisma } from "@codexa/db";
 
 // ================================================================
+// HELPER: Fetch Problem Stats from Problem Service
+// ================================================================
+export const fetchProblemStats = async () => {
+  try {
+    const problemServiceUrl = process.env.PROBLEM_SERVICE_URL || "http://problem-service:8002";
+    const response = await fetch(`${problemServiceUrl}/api/problems/stats`);
+    
+    if (!response.ok) {
+      console.error("Failed to fetch problem stats from problem-service");
+      return { total: 0, easy: 0, medium: 0, hard: 0 };
+    }
+    
+    const data = await response.json();
+    return data.data || { total: 0, easy: 0, medium: 0, hard: 0 };
+  } catch (error) {
+    console.error("Error fetching problem stats:", error);
+    return { total: 0, easy: 0, medium: 0, hard: 0 };
+  }
+};
+
+// ================================================================
 // FEATURE 1: SELF-REFLECTION DASHBOARD
 // ================================================================
 
