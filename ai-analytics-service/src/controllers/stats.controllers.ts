@@ -9,6 +9,7 @@ import {
   getCatchUpList,
   getGlobalRank,
   getProblemStats,
+  fetchProblemStats,
 } from "../services/stats.services.js";
 
 // ================================================================
@@ -24,18 +25,42 @@ export const getDashboard = async (req: Request, res: Response) => {
     const userId = req.params.userId as string;
     if (!userId) return res.status(400).json({ error: "userId is required" });
 
-    const dashboard = await getSelfReflectionDashboard(userId);
-    if (!dashboard) {
-      return res
-        .status(404)
-        .json({ error: "No analytics found. Start solving problems!" });
-    }
+    const [dashboard, rank, problemStats] = await Promise.all([
+      getSelfReflectionDashboard(userId),
+      getGlobalRank(userId),
+      fetchProblemStats(),
+    ]);
 
-    const rank = await getGlobalRank(userId);
+    if (!dashboard) {
+      return res.json({
+        success: true,
+        data: {
+          overview: {
+            totalSolved: 0,
+            totalAttempted: 0,
+            successRate: 0,
+            easySolved: 0,
+            mediumSolved: 0,
+            hardSolved: 0,
+          },
+          streaks: {
+            current: 0,
+            max: 0,
+            lastActive: null,
+          },
+          activityHeatmap: {},
+          topicStrengths: [],
+          efficiencyStats: {},
+          languageStats: {},
+          globalRank: null,
+          problemStats,
+        },
+      });
+    }
 
     return res.json({
       success: true,
-      data: { ...dashboard, globalRank: rank },
+      data: { ...dashboard, globalRank: rank, problemStats },
     });
   } catch (error: any) {
     console.error("Dashboard error:", error.message);

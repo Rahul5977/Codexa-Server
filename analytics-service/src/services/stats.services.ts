@@ -5,19 +5,41 @@ import { prisma, Prisma } from "@codexa/db";
 // ================================================================
 export const fetchProblemStats = async () => {
   try {
-    const problemServiceUrl = process.env.PROBLEM_SERVICE_URL || "http://problem-service:8002";
-    const response = await fetch(`${problemServiceUrl}/api/problems/stats`);
-    
-    if (!response.ok) {
-      console.error("Failed to fetch problem stats from problem-service");
+    const [total, grouped] = await Promise.all([
+      prisma.problem.count(),
+      prisma.problem.groupBy({
+        by: ["difficulty"],
+        _count: { _all: true },
+      }),
+    ]);
+
+    const stats = { total, easy: 0, medium: 0, hard: 0 };
+
+    for (const row of grouped) {
+      const count = row._count._all;
+      if (row.difficulty === "EASY") stats.easy = count;
+      if (row.difficulty === "MEDIUM") stats.medium = count;
+      if (row.difficulty === "HARD") stats.hard = count;
+    }
+
+    return stats;
+  } catch (error) {
+    console.error("Error fetching problem stats from DB, falling back to problem-service:", error);
+
+    try {
+      const problemServiceUrl = process.env.PROBLEM_SERVICE_URL || "http://problem-service:8002";
+      const response = await fetch(`${problemServiceUrl}/api/problems/stats`);
+
+      if (!response.ok) {
+        return { total: 0, easy: 0, medium: 0, hard: 0 };
+      }
+
+      const data = await response.json();
+      return data.data || { total: 0, easy: 0, medium: 0, hard: 0 };
+    } catch (fallbackError) {
+      console.error("Fallback problem stats fetch failed:", fallbackError);
       return { total: 0, easy: 0, medium: 0, hard: 0 };
     }
-    
-    const data = await response.json();
-    return data.data || { total: 0, easy: 0, medium: 0, hard: 0 };
-  } catch (error) {
-    console.error("Error fetching problem stats:", error);
-    return { total: 0, easy: 0, medium: 0, hard: 0 };
   }
 };
 

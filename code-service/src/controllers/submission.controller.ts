@@ -136,6 +136,7 @@ export const getAllSubmissions = async (req: Request, res: Response) => {
       take: 100, // Increased limit for public submissions
       select: {
         id: true,
+        problemId: true,
         status: true,
         time: true,
         memory: true,
