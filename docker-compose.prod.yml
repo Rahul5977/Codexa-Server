@@ -192,6 +192,46 @@ services:
       - postgres
     restart: always
 
+  ai-analytics-service:
+    build:
+      context: .
+      dockerfile: ai-analytics-service/Dockerfile
+      target: production
+    container_name: codexa-ai-analytics-service
+    ports:
+      - "8006:8006"
+    environment:
+      - PORT=8006
+      - DATABASE_URL=${DATABASE_URL}
+      - NODE_ENV=production
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - CORS_ORIGIN=${CORS_ORIGIN}
+    depends_on:
+      - postgres
+      - redis
+    restart: always
+
+  codexa-client:
+    build:
+      context: ../Codexa-Client
+      dockerfile: Dockerfile
+      target: production
+    container_name: codexa-client
+    ports:
+      - "4173:4173"
+    env_file:
+      - ../Codexa-Client/.env
+    depends_on:
+      - auth-service
+      - problem-service
+      - code-service
+      - analytics-service
+      - ai-analytics-service
+    restart: always
+
 volumes:
   postgres_data:
   redis_data:

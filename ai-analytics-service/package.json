@@ -1,5 +1,5 @@
 {
-  "name": "analytics-service",
+  "name": "ai-analytics-service",
   "version": "1.0.0",
   "description": "Codexa Analytics - Self-Reflection & Rivalry Engine",
   "main": "src/index.ts",

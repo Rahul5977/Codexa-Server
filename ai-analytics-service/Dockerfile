@@ -12,13 +12,14 @@ COPY package.json package-lock.json ./
 COPY db-service ./db-service
 
 # Copy the Service
-COPY analytics-service ./analytics-service
+COPY ai-analytics-service ./ai-analytics-service
 
 # Install Dependencies
 RUN npm ci
 
 # Generate Prisma Client
 WORKDIR /app/db-service
+ENV DATABASE_URL="postgresql://user:password@postgres:5432/codexa?schema=public"
 RUN npx prisma generate
 
 # ==========================================
@@ -39,7 +40,7 @@ COPY --from=base /app/db-service ./db-service
 # Install tsx globally for hot reload
 RUN npm install -g tsx
 
-WORKDIR /app/analytics-service
+WORKDIR /app/ai-analytics-service
 
 # Development command with hot reload (tsx watch)
 CMD ["npm", "run", "dev"]
@@ -53,7 +54,7 @@ FROM base AS builder
 WORKDIR /app/db-service
 RUN npm run build
 
-WORKDIR /app/analytics-service
+WORKDIR /app/ai-analytics-service
 RUN npm run build
 
 # ==========================================
@@ -73,10 +74,10 @@ COPY --from=builder /app/db-service/package.json ./db-service/package.json
 COPY --from=builder /app/db-service/prisma ./db-service/prisma
 
 # Copy the built Service
-COPY --from=builder /app/analytics-service/dist ./analytics-service/dist
-COPY --from=builder /app/analytics-service/package.json ./analytics-service/package.json
-COPY --from=builder /app/analytics-service/node_modules ./analytics-service/node_modules
+COPY --from=builder /app/ai-analytics-service/dist ./ai-analytics-service/dist
+COPY --from=builder /app/ai-analytics-service/package.json ./ai-analytics-service/package.json
+COPY --from=builder /app/ai-analytics-service/node_modules ./ai-analytics-service/node_modules
 
-WORKDIR /app/analytics-service
+WORKDIR /app/ai-analytics-service
 
 CMD ["npm", "start"]
