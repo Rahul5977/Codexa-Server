@@ -1,5 +1,31 @@
 import { prisma, Prisma } from "@codexa/db";
 
+export const fetchProblemStats = async () => {
+  try {
+    const [total, grouped] = await Promise.all([
+      prisma.problem.count(),
+      prisma.problem.groupBy({
+        by: ["difficulty"],
+        _count: { _all: true },
+      }),
+    ]);
+
+    const stats = { total, easy: 0, medium: 0, hard: 0 };
+
+    for (const row of grouped) {
+      const count = row._count._all;
+      if (row.difficulty === "EASY") stats.easy = count;
+      if (row.difficulty === "MEDIUM") stats.medium = count;
+      if (row.difficulty === "HARD") stats.hard = count;
+    }
+
+    return stats;
+  } catch (error) {
+    console.error("Error fetching problem stats:", error);
+    return { total: 0, easy: 0, medium: 0, hard: 0 };
+  }
+};
+
 // ================================================================
 // FEATURE 1: SELF-REFLECTION DASHBOARD
 // ================================================================
