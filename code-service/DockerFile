@@ -8,21 +8,19 @@ WORKDIR /app
 # Copy Root Configs
 COPY package.json package-lock.json ./
 
-# Copy all workspace services (needed for npm ci workspaces)
-COPY auth-service/package.json ./auth-service/package.json
-COPY utils-service/package.json ./utils-service/package.json
-COPY problem-service/package.json ./problem-service/package.json
-COPY classroom-service/package.json ./classroom-service/package.json
-COPY code-service/package.json ./code-service/package.json
+# Copy the Shared Library (db-service)
 COPY db-service ./db-service
-COPY analytics-service ./analytics-service
 
-# Install Dependencies (includes all workspace packages)
+# Copy the Service
+COPY code-service ./code-service
+
+# Install Dependencies
 RUN npm ci
 
-# Generate Prisma Client (provide dummy DATABASE_URL for build time)
+# Generate Prisma Client
 WORKDIR /app/db-service
-RUN DATABASE_URL="postgresql://dummy:dummy@dummy:5432/dummy" npx prisma generate
+ENV DATABASE_URL="postgresql://user:password@postgres:5432/codexa?schema=public"
+RUN npx prisma generate
 
 # ==========================================
 # STAGE 2: Development Image (Hot Reload)
@@ -31,20 +29,30 @@ FROM node:20-alpine AS development
 
 WORKDIR /app
 
-# Copy node_modules from base (includes all workspace dependencies)
+# Copy node_modules from base
 COPY --from=base /app/node_modules ./node_modules
 COPY --from=base /app/package.json ./package.json
 
-# Copy db-service (for Prisma client)
+# Copy db-service (for Prisma client and @codexa/db package)
 COPY --from=base /app/db-service ./db-service
+COPY --from=base /app/db-service/node_modules ./db-service/node_modules
+
+# Build db-service to generate dist folder
+WORKDIR /app/db-service
+RUN npm run build
+
+WORKDIR /app
+
+# Copy code-service node_modules from base
+COPY --from=base /app/code-service/node_modules ./code-service/node_modules
 
 # The source code will be mounted as a volume
-# Install tsx globally for hot reload
-RUN npm install -g tsx
+# Install nodemon globally for hot reload
+RUN npm install -g nodemon tsx
 
-WORKDIR /app/analytics-service
+WORKDIR /app/code-service
 
-# Development command with hot reload (tsx watch)
+# Development command with hot reload
 CMD ["npm", "run", "dev"]
 
 # ==========================================
@@ -54,9 +62,6 @@ FROM base AS builder
 
 # Build the Service
 WORKDIR /app/db-service
-RUN npm run build
-
-WORKDIR /app/analytics-service
 RUN npm run build
 
 # ==========================================
@@ -75,11 +80,12 @@ COPY --from=builder /app/db-service/dist ./db-service/dist
 COPY --from=builder /app/db-service/package.json ./db-service/package.json
 COPY --from=builder /app/db-service/prisma ./db-service/prisma
 
-# Copy the built Service
-COPY --from=builder /app/analytics-service/dist ./analytics-service/dist
-COPY --from=builder /app/analytics-service/package.json ./analytics-service/package.json
-COPY --from=builder /app/analytics-service/node_modules ./analytics-service/node_modules
+# Copy service source (code-service runs directly via tsx)
+COPY --from=builder /app/code-service/src ./code-service/src
+COPY --from=builder /app/code-service/tsconfig.json ./code-service/tsconfig.json
+COPY --from=builder /app/code-service/package.json ./code-service/package.json
+COPY --from=builder /app/code-service/node_modules ./code-service/node_modules
 
-WORKDIR /app/analytics-service
+WORKDIR /app/code-service
 
 CMD ["npm", "start"]

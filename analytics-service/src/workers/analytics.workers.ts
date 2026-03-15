@@ -1,6 +1,6 @@
 //Responsibility: Listen to BullMQ and call the handler.
 import { Worker } from "bullmq";
-import { redisConnection } from "../config/redis.js";
+import { env } from "../config/env.js";
 import { handleSubmissionCompleted } from "../events/submissionHandler.js";
 
 export const analyticsWorker = new Worker(
@@ -11,7 +11,11 @@ export const analyticsWorker = new Worker(
     await handleSubmissionCompleted(job.data);
   },
   {
-    connection: redisConnection, // Use the shared connection
+    connection: {
+      host: env.REDIS_HOST,
+      port: env.REDIS_PORT,
+      maxRetriesPerRequest: null,
+    },
     concurrency: 3,
   },
 );

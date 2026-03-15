@@ -22,9 +22,9 @@ export const problemSchema = z.object({
   companies: z.array(z.string()),
   testcases: z.array(testcaseSchema),
   hiddenTestcases: z.array(testcaseSchema).default([]),
-  functionName: z.string().optional(),
-  parameters: z.any().optional(),
-  returnType: z.string().optional(),
+  functionName: z.string().min(1).default("solve"),
+  parameters: z.any().default([]),
+  returnType: z.string().min(1).default("any"),
 });
 
 export type ProblemInput = z.infer<typeof problemSchema>;

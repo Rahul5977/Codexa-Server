@@ -22,6 +22,9 @@ export const addProblem = asyncHandler(async (req: Request, res: Response) => {
       ...data,
       examples: data.examples,
       testcases: data.testcases,
+      functionName: data.functionName,
+      parameters: data.parameters,
+      returnType: data.returnType,
     },
   });
   const response = ApiResponse.created(problem, "Problem created successfully");

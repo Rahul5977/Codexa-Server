@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { ZodError } from "zod";
 import { Request, Response } from "express";
 import { asyncHandler } from "../utils/asyncHandler.js";

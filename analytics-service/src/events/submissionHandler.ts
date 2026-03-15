@@ -168,6 +168,7 @@ export const handleSubmissionCompleted = async (
 
       if (existing) {
         // Only increment solved count on first solve
+        const newAttempted = existing.attempted + 1;
         const newSolved = isFirstSolve ? existing.solved + 1 : existing.solved;
         const weight = DIFFICULTY_WEIGHT[data.difficulty] || 1.0;
         const strength =
@@ -204,7 +205,6 @@ export const handleSubmissionCompleted = async (
             strength,
             easySolved: isFirstSolve && data.difficulty === "EASY" ? 1 : 0,
             mediumSolved: isFirstSolve && data.difficulty === "MEDIUM" ? 1 : 0,
-            hardSolved: isFirstSolveed && data.difficulty === "MEDIUM" ? 1 : 0,
             hardSolved: isAccepted && data.difficulty === "HARD" ? 1 : 0,
           },
         });
