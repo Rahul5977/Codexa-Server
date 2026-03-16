@@ -2,10 +2,10 @@
   "name": "ai-analytics-service",
   "version": "1.0.0",
   "description": "Codexa Analytics - Self-Reflection & Rivalry Engine",
-  "main": "src/index.ts",
+  "main": "dist/index.js",
   "scripts": {
     "dev": "NODE_ENV=development tsx watch src/index.ts",
-    "start": "NODE_ENV=production tsx src/index.ts",
+    "start": "NODE_ENV=production node dist/index.js",
     "build": "tsc"
   },
   "keywords": [],
