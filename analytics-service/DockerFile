@@ -18,7 +18,7 @@ COPY db-service ./db-service
 COPY analytics-service ./analytics-service
 
 # Install Dependencies (includes all workspace packages)
-RUN npm ci
+RUN npm ci --prefer-offline || npm ci
 
 # Generate Prisma Client (provide dummy DATABASE_URL for build time)
 WORKDIR /app/db-service

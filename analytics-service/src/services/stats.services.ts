@@ -10,6 +10,10 @@ type TimeBucket = {
   end: Date;
 };
 
+type TimezoneOptions = {
+  tzOffsetMinutes?: number;
+};
+
 const startOfUtcDay = (date: Date) =>
   new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 
@@ -39,55 +43,95 @@ const formatUtcMonthKey = (date: Date) => {
   return `${y}-${m}`;
 };
 
-const getRangeForPeriod = (period: AnalyticsPeriod) => {
+// Offset follows Date.getTimezoneOffset semantics.
+// localTime = utcTime - offsetMinutes
+const toOffsetShiftedDate = (date: Date, offsetMinutes: number) =>
+  new Date(date.getTime() - offsetMinutes * 60000);
+
+const fromOffsetShiftedDate = (date: Date, offsetMinutes: number) =>
+  new Date(date.getTime() + offsetMinutes * 60000);
+
+const formatDateKeyWithOffset = (date: Date, offsetMinutes: number) =>
+  formatUtcDateKey(toOffsetShiftedDate(date, offsetMinutes));
+
+const formatMonthKeyWithOffset = (date: Date, offsetMinutes: number) =>
+  formatUtcMonthKey(toOffsetShiftedDate(date, offsetMinutes));
+
+const getRangeForPeriod = (period: AnalyticsPeriod, offsetMinutes: number) => {
   const now = new Date();
-  const todayStart = startOfUtcDay(now);
-  const todayEnd = endOfUtcDay(now);
+  const nowShifted = toOffsetShiftedDate(now, offsetMinutes);
+  const todayStartShifted = startOfUtcDay(nowShifted);
 
   if (period === "weekly") {
-    // Fixed calendar week: Monday -> Sunday
-    const dayOfWeek = todayStart.getUTCDay(); // 0 = Sun, 1 = Mon, ...
+    const dayOfWeek = todayStartShifted.getUTCDay(); // 0 = Sun, 1 = Mon, ...
     const daysSinceMonday = (dayOfWeek + 6) % 7;
-    const start = new Date(todayStart);
-    start.setUTCDate(start.getUTCDate() - daysSinceMonday);
+    const startShifted = new Date(todayStartShifted);
+    startShifted.setUTCDate(startShifted.getUTCDate() - daysSinceMonday);
 
-    const end = new Date(start);
-    end.setUTCDate(end.getUTCDate() + 6);
-    end.setUTCHours(23, 59, 59, 999);
+    const endShifted = new Date(startShifted);
+    endShifted.setUTCDate(endShifted.getUTCDate() + 6);
+    endShifted.setUTCHours(23, 59, 59, 999);
 
-    return { start, end };
+    return {
+      start: fromOffsetShiftedDate(startShifted, offsetMinutes),
+      end: fromOffsetShiftedDate(endShifted, offsetMinutes),
+    };
   }
 
   if (period === "monthly") {
-    // Fixed calendar month: 1st -> last day of current month
-    const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-    const end = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999),
+    const startShifted = new Date(
+      Date.UTC(nowShifted.getUTCFullYear(), nowShifted.getUTCMonth(), 1),
     );
-    return { start, end };
+    const endShifted = new Date(
+      Date.UTC(
+        nowShifted.getUTCFullYear(),
+        nowShifted.getUTCMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+        999,
+      ),
+    );
+
+    return {
+      start: fromOffsetShiftedDate(startShifted, offsetMinutes),
+      end: fromOffsetShiftedDate(endShifted, offsetMinutes),
+    };
   }
 
-  // Fixed calendar year: Jan -> Dec of current year
-  const start = new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
-  const end = new Date(Date.UTC(now.getUTCFullYear(), 11, 31, 23, 59, 59, 999));
-  return { start, end };
+  const startShifted = new Date(Date.UTC(nowShifted.getUTCFullYear(), 0, 1));
+  const endShifted = new Date(
+    Date.UTC(nowShifted.getUTCFullYear(), 11, 31, 23, 59, 59, 999),
+  );
+
+  return {
+    start: fromOffsetShiftedDate(startShifted, offsetMinutes),
+    end: fromOffsetShiftedDate(endShifted, offsetMinutes),
+  };
 };
 
 const buildTimeBuckets = (
   period: AnalyticsPeriod,
   start: Date,
   end: Date,
+  offsetMinutes: number,
 ): TimeBucket[] => {
   const buckets: TimeBucket[] = [];
+  const startShifted = toOffsetShiftedDate(start, offsetMinutes);
+  const endShifted = toOffsetShiftedDate(end, offsetMinutes);
 
   if (period === "yearly") {
-    const cursor = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1));
-    while (cursor <= end) {
-      const bucketStart = new Date(cursor);
-      const bucketEnd = new Date(
+    const cursorShifted = new Date(
+      Date.UTC(startShifted.getUTCFullYear(), startShifted.getUTCMonth(), 1),
+    );
+
+    while (cursorShifted <= endShifted) {
+      const bucketStartShifted = new Date(cursorShifted);
+      const bucketEndShifted = new Date(
         Date.UTC(
-          cursor.getUTCFullYear(),
-          cursor.getUTCMonth() + 1,
+          cursorShifted.getUTCFullYear(),
+          cursorShifted.getUTCMonth() + 1,
           0,
           23,
           59,
@@ -97,40 +141,40 @@ const buildTimeBuckets = (
       );
 
       buckets.push({
-        key: formatUtcMonthKey(bucketStart),
-        label: bucketStart.toLocaleDateString("en-US", {
+        key: formatUtcMonthKey(bucketStartShifted),
+        label: bucketStartShifted.toLocaleDateString("en-US", {
           month: "short",
           timeZone: "UTC",
         }),
         solved: 0,
-        start: bucketStart,
-        end: bucketEnd,
+        start: fromOffsetShiftedDate(bucketStartShifted, offsetMinutes),
+        end: fromOffsetShiftedDate(bucketEndShifted, offsetMinutes),
       });
 
-      cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+      cursorShifted.setUTCMonth(cursorShifted.getUTCMonth() + 1);
     }
 
     return buckets;
   }
 
-  const cursor = new Date(start);
-  while (cursor <= end) {
-    const bucketStart = startOfUtcDay(cursor);
-    const bucketEnd = endOfUtcDay(cursor);
+  const cursorShifted = startOfUtcDay(startShifted);
+  while (cursorShifted <= endShifted) {
+    const bucketStartShifted = startOfUtcDay(cursorShifted);
+    const bucketEndShifted = endOfUtcDay(cursorShifted);
 
     buckets.push({
-      key: formatUtcDateKey(bucketStart),
-      label: bucketStart.toLocaleDateString("en-US", {
+      key: formatUtcDateKey(bucketStartShifted),
+      label: bucketStartShifted.toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
         timeZone: "UTC",
       }),
       solved: 0,
-      start: bucketStart,
-      end: bucketEnd,
+      start: fromOffsetShiftedDate(bucketStartShifted, offsetMinutes),
+      end: fromOffsetShiftedDate(bucketEndShifted, offsetMinutes),
     });
 
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
+    cursorShifted.setUTCDate(cursorShifted.getUTCDate() + 1);
   }
 
   return buckets;
@@ -244,54 +288,114 @@ export const getSelfReflectionDashboard = async (userId: string) => {
 
 /**
  * 1. GitHub-Style Activity Heatmap
- * Returns daily submission count for the past year
+ * Returns daily solved-problem count for the past year
  */
-export const getActivityHeatmap = async (userId: string) => {
-  const analytics = await prisma.userAnalytics.findUnique({
-    where: { userId },
-    select: {
-      activityLog: true,
-      streakCurrent: true,
-      streakMax: true,
-      lastActive: true,
-    },
+export const getActivityHeatmap = async (
+  userId: string,
+  options?: TimezoneOptions,
+) => {
+  const tzOffsetMinutes = options?.tzOffsetMinutes ?? 0;
+
+  // Query all ACCEPTED submissions. Using the Submission table ensures
+  // re-solving a problem on a new day is recorded (userSolvedProblem only
+  // stores the first-ever solve per problem, so it misses today's activity
+  // for previously-solved problems).
+  const acceptedSubmissions = await prisma.submission.findMany({
+    where: { userId, status: "ACCEPTED" },
+    select: { problemId: true, createdAt: true },
+    orderBy: { createdAt: "asc" },
   });
 
-  if (!analytics) return { heatmap: {}, streak: { current: 0, max: 0 } };
+  if (acceptedSubmissions.length === 0) {
+    return {
+      heatmap: {},
+      streak: { current: 0, max: 0, lastActive: null },
+      summary: {
+        totalActiveDays: 0,
+        maxInDay: 0,
+        totalSolved: 0,
+        totalSubmissions: 0,
+      },
+    };
+  }
 
-  const activityLog = (analytics.activityLog as Record<string, number>) || {};
+  // Deduplicate by (dayKey, problemId) — re-solving the same problem twice
+  // in a day counts as one solve for the heatmap.
+  const daySolveSet: Record<string, Set<string>> = {};
+  for (const sub of acceptedSubmissions) {
+    const dayKey = formatDateKeyWithOffset(sub.createdAt, tzOffsetMinutes);
+    if (!daySolveSet[dayKey]) daySolveSet[dayKey] = new Set();
+    daySolveSet[dayKey].add(sub.problemId);
+  }
+
+  const dailySolvedCounts: Record<string, number> = {};
+  for (const [day, problems] of Object.entries(daySolveSet)) {
+    dailySolvedCounts[day] = problems.size;
+  }
 
   // Filter to only the last 365 days
   const oneYearAgo = new Date();
   oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-  const oneYearAgoStr = oneYearAgo.toISOString().split("T")[0]!;
+  const oneYearAgoKey = formatDateKeyWithOffset(oneYearAgo, tzOffsetMinutes);
 
   const filteredLog: Record<string, number> = {};
-  for (const [date, count] of Object.entries(activityLog)) {
-    if (date >= oneYearAgoStr) {
+  for (const [date, count] of Object.entries(dailySolvedCounts)) {
+    if (date >= oneYearAgoKey) {
       filteredLog[date] = count;
     }
   }
 
-  // Calculate total active days and max submissions in a day
+  const solvedDayKeys = Object.keys(dailySolvedCounts).sort();
+  const solvedDaySet = new Set(solvedDayKeys);
+
+  // Calculate max streak across all days with at least one accepted solve.
+  let maxStreak = 0;
+  let run = 0;
+  let prevDate: Date | null = null;
+
+  for (const key of solvedDayKeys) {
+    const current = new Date(`${key}T00:00:00.000Z`);
+    if (!prevDate) {
+      run = 1;
+    } else {
+      const diffDays = Math.round((current.getTime() - prevDate.getTime()) / 86400000);
+      run = diffDays === 1 ? run + 1 : 1;
+    }
+    if (run > maxStreak) maxStreak = run;
+    prevDate = current;
+  }
+
+  // Current streak counts today if solved, else starts from yesterday.
+  const cursor = startOfUtcDay(new Date());
+  const todayKey = formatDateKeyWithOffset(cursor, tzOffsetMinutes);
+  if (!solvedDaySet.has(todayKey)) {
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
+  }
+
+  let currentStreak = 0;
+  while (solvedDaySet.has(formatDateKeyWithOffset(cursor, tzOffsetMinutes))) {
+    currentStreak += 1;
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
+  }
+
+  // totalSolved = unique problems ever solved (distinct problem IDs).
+  const totalUniqueSolved = new Set(acceptedSubmissions.map((s) => s.problemId)).size;
   const totalActiveDays = Object.keys(filteredLog).length;
   const maxInDay = Math.max(0, ...Object.values(filteredLog));
-  const totalSubmissions = Object.values(filteredLog).reduce(
-    (s, c) => s + c,
-    0,
-  );
+  const lastActive = acceptedSubmissions[acceptedSubmissions.length - 1]?.createdAt ?? null;
 
   return {
     heatmap: filteredLog,
     streak: {
-      current: analytics.streakCurrent,
-      max: analytics.streakMax,
-      lastActive: analytics.lastActive,
+      current: currentStreak,
+      max: maxStreak,
+      lastActive,
     },
     summary: {
       totalActiveDays,
       maxInDay,
-      totalSubmissions,
+      totalSolved: totalUniqueSolved,
+      totalSubmissions: totalUniqueSolved,
     },
   };
 };
@@ -302,33 +406,38 @@ export const getActivityHeatmap = async (userId: string) => {
 export const getTimeframeAnalyticsData = async (
   userId: string,
   period: AnalyticsPeriod,
+  options?: TimezoneOptions,
 ) => {
-  const { start, end } = getRangeForPeriod(period);
-  const buckets = buildTimeBuckets(period, start, end);
+  const tzOffsetMinutes = options?.tzOffsetMinutes ?? 0;
+  const { start, end } = getRangeForPeriod(period, tzOffsetMinutes);
+  const buckets = buildTimeBuckets(period, start, end, tzOffsetMinutes);
 
-  const solvedProblems = await prisma.userSolvedProblem.findMany({
+  const acceptedSubmissions = await prisma.submission.findMany({
     where: {
       userId,
-      solvedAt: {
+      status: "ACCEPTED",
+      createdAt: {
         gte: start,
         lte: end,
       },
     },
     select: {
-      solvedAt: true,
-      difficulty: true,
+      createdAt: true,
+      problemId: true,
       problem: {
         select: {
+          difficulty: true,
           tags: true,
         },
       },
     },
     orderBy: {
-      solvedAt: "asc",
+      createdAt: "asc",
     },
   });
 
   const bucketByKey = new Map(buckets.map((b) => [b.key, b]));
+  const bucketProblemSet: Record<string, Set<string>> = {};
   const tagsCount: Record<string, number> = {};
   const difficultyCount: Record<string, number> = {
     EASY: 0,
@@ -336,16 +445,25 @@ export const getTimeframeAnalyticsData = async (
     HARD: 0,
   };
 
-  for (const solved of solvedProblems) {
+  for (const solved of acceptedSubmissions) {
     const key =
       period === "yearly"
-        ? formatUtcMonthKey(solved.solvedAt)
-        : formatUtcDateKey(solved.solvedAt);
+        ? formatMonthKeyWithOffset(solved.createdAt, tzOffsetMinutes)
+        : formatDateKeyWithOffset(solved.createdAt, tzOffsetMinutes);
+
+    if (!bucketProblemSet[key]) bucketProblemSet[key] = new Set();
+
+    // Count each problem once per bucket.
+    if (bucketProblemSet[key].has(solved.problemId)) {
+      continue;
+    }
+    bucketProblemSet[key].add(solved.problemId);
 
     const bucket = bucketByKey.get(key);
     if (bucket) bucket.solved += 1;
 
-    difficultyCount[solved.difficulty] = (difficultyCount[solved.difficulty] || 0) + 1;
+    difficultyCount[solved.problem.difficulty] =
+      (difficultyCount[solved.problem.difficulty] || 0) + 1;
 
     for (const tag of solved.problem.tags || []) {
       tagsCount[tag] = (tagsCount[tag] || 0) + 1;
@@ -369,7 +487,7 @@ export const getTimeframeAnalyticsData = async (
     { difficulty: "Hard", solved: difficultyCount.HARD || 0 },
   ];
 
-  const totalSolved = solvedProblems.length;
+  const totalSolved = solvedOverTime.reduce((sum, item) => sum + item.solved, 0);
   const activeBuckets = solvedOverTime.filter((item) => item.solved > 0).length;
   const maxSolved = solvedOverTime.reduce((max, item) => Math.max(max, item.solved), 0);
   const bestBucket = solvedOverTime.find((item) => item.solved === maxSolved) || null;

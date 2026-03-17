@@ -77,9 +77,12 @@ export const getDashboard = async (req: Request, res: Response) => {
 export const getHeatmap = async (req: Request, res: Response) => {
   try {
     const userId = req.params.userId as string;
+    const tzOffsetMinutes = Number(req.query.tzOffsetMinutes ?? 0);
     if (!userId) return res.status(400).json({ error: "userId is required" });
 
-    const heatmap = await getActivityHeatmap(userId);
+    const heatmap = await getActivityHeatmap(userId, {
+      tzOffsetMinutes: Number.isNaN(tzOffsetMinutes) ? 0 : tzOffsetMinutes,
+    });
     return res.json({ success: true, data: heatmap });
   } catch (error: any) {
     console.error("Heatmap error:", error.message);
@@ -95,6 +98,7 @@ export const getTimeframeAnalytics = async (req: Request, res: Response) => {
   try {
     const userId = req.params.userId as string;
     const period = (req.query.period as string | undefined) || "weekly";
+    const tzOffsetMinutes = Number(req.query.tzOffsetMinutes ?? 0);
 
     if (!userId) return res.status(400).json({ error: "userId is required" });
     if (!["weekly", "monthly", "yearly"].includes(period)) {
@@ -106,6 +110,9 @@ export const getTimeframeAnalytics = async (req: Request, res: Response) => {
     const data = await getTimeframeAnalyticsData(
       userId,
       period as "weekly" | "monthly" | "yearly",
+      {
+        tzOffsetMinutes: Number.isNaN(tzOffsetMinutes) ? 0 : tzOffsetMinutes,
+      },
     );
     return res.json({ success: true, data });
   } catch (error: any) {
