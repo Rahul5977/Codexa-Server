@@ -13,6 +13,9 @@ import {
   completeRegistration,
   updateProfile,
   updateProfilePicture,
+  listUsers,
+  getPublicUserProfile,
+  toggleFriend,
 } from "../controller/auth.controller.js";
 import { authenticate } from "../middleware/auth.middleware.js";
 import uploadFile from "../middleware/multer.js"
@@ -37,5 +40,8 @@ authRoutes.post("/logout", authenticate, logout);
 authRoutes.get("/me", authenticate, getMe);
 authRoutes.put("/profile", authenticate, updateProfile);
 authRoutes.put("/profile-picture", authenticate, uploadFile, updateProfilePicture);
+authRoutes.get("/users", authenticate, listUsers);
+authRoutes.get("/users/:userId", authenticate, getPublicUserProfile);
+authRoutes.post("/friends/:userId/toggle", authenticate, toggleFriend);
 
 export default authRoutes;

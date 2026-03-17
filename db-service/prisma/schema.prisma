@@ -73,6 +73,26 @@ model User {
   assignmentSubmissions AssignmentSubmission[]
   examSubmissions       ExamSubmission[]
   assignmentDrafts      AssignmentDraft[]
+
+  // Social relations
+  friendshipsInitiated Friendship[] @relation("FriendshipUserA")
+  friendshipsReceived  Friendship[] @relation("FriendshipUserB")
+}
+
+model Friendship {
+  id      String @id @default(uuid())
+  userAId String
+  userBId String
+
+  createdAt DateTime @default(now())
+
+  userA User @relation("FriendshipUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB User @relation("FriendshipUserB", fields: [userBId], references: [id], onDelete: Cascade)
+
+  @@unique([userAId, userBId])
+  @@index([userAId])
+  @@index([userBId])
+  @@map("friendships")
 }
 
 enum Difficulty {

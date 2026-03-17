@@ -32,6 +32,101 @@ import {
 import getBuffer from "../utils/buffer.js"
 import axios from "axios"
 
+const getFriendshipDelegate = () => (prisma as any).friendship as
+  | {
+      findMany: Function;
+      findFirst: Function;
+      findUnique: Function;
+      create: Function;
+      delete: Function;
+    }
+  | undefined;
+
+type FriendshipEdge = {
+  userAId: string;
+  userBId: string;
+};
+
+const getFriendPair = (leftUserId: string, rightUserId: string) =>
+  [leftUserId, rightUserId].sort() as [string, string];
+
+const listFriendshipsForUser = async (
+  currentUserId: string,
+): Promise<FriendshipEdge[]> => {
+  const friendshipDelegate = getFriendshipDelegate();
+  if (friendshipDelegate) {
+    return (await friendshipDelegate.findMany({
+      where: {
+        OR: [{ userAId: currentUserId }, { userBId: currentUserId }],
+      },
+      select: {
+        userAId: true,
+        userBId: true,
+      },
+    })) as FriendshipEdge[];
+  }
+
+  return prisma.$queryRaw<FriendshipEdge[]>`
+    SELECT "userAId", "userBId"
+    FROM "friendships"
+    WHERE "userAId" = ${currentUserId} OR "userBId" = ${currentUserId}
+  `;
+};
+
+const findFriendshipByPair = async (
+  userAId: string,
+  userBId: string,
+): Promise<{ id: string } | null> => {
+  const friendshipDelegate = getFriendshipDelegate();
+  if (friendshipDelegate) {
+    return (await friendshipDelegate.findUnique({
+      where: { userAId_userBId: { userAId, userBId } },
+      select: { id: true },
+    })) as { id: string } | null;
+  }
+
+  const rows = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT "id"
+    FROM "friendships"
+    WHERE "userAId" = ${userAId} AND "userBId" = ${userBId}
+    LIMIT 1
+  `;
+
+  return rows[0] ?? null;
+};
+
+const createFriendshipByPair = async (
+  userAId: string,
+  userBId: string,
+): Promise<void> => {
+  const friendshipDelegate = getFriendshipDelegate();
+  if (friendshipDelegate) {
+    await friendshipDelegate.create({
+      data: { userAId, userBId },
+    });
+    return;
+  }
+
+  await prisma.$executeRaw`
+    INSERT INTO "friendships" ("id", "userAId", "userBId", "createdAt")
+    VALUES (${crypto.randomUUID()}, ${userAId}, ${userBId}, NOW())
+    ON CONFLICT ("userAId", "userBId") DO NOTHING
+  `;
+};
+
+const deleteFriendshipById = async (friendshipId: string): Promise<void> => {
+  const friendshipDelegate = getFriendshipDelegate();
+  if (friendshipDelegate) {
+    await friendshipDelegate.delete({ where: { id: friendshipId } });
+    return;
+  }
+
+  await prisma.$executeRaw`
+    DELETE FROM "friendships"
+    WHERE "id" = ${friendshipId}
+  `;
+};
+
 // Helper to format Zod errors
 function formatZodErrors(error: ZodError): Record<string, string> {
   const errors: Record<string, string> = {};
@@ -887,3 +982,226 @@ export const updateProfilePicture = asyncHandler(
     res.status(response.statusCode).json(response);
   },
 )
+
+/**
+ * @route   GET /api/auth/users
+ * @desc    List users with public stats and friendship flag
+ * @access  Private
+ */
+export const listUsers = asyncHandler(async (req, res) => {
+  const currentUserId = (req as any).user?.userId as string | undefined;
+
+  if (!currentUserId) {
+    throw ApiError.unauthorized("Not authenticated");
+  }
+
+  const search = String((req.query as any)?.search || "").trim();
+  const role = String((req.query as any)?.role || "").trim().toUpperCase();
+  const friendFilter = String((req.query as any)?.friend || "all").trim().toLowerCase();
+  const minStreak = Number((req.query as any)?.minStreak || 0) || 0;
+
+  const [rawUsers, friendships] = await Promise.all([
+    prisma.user.findMany({
+      where: {
+        status: "ACTIVE",
+        role: {
+          not: "ADMIN",
+          ...(role && ["USER", "STUDENT", "TEACHER"].includes(role)
+            ? { equals: role as any }
+            : {}),
+        },
+        ...(search
+          ? {
+              OR: [
+                { name: { contains: search, mode: "insensitive" } },
+                { email: { contains: search, mode: "insensitive" } },
+              ],
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        image_url: true,
+        easyCount: true,
+        mediumCount: true,
+        hardCount: true,
+        totalSolved: true,
+        currentRating: true,
+        userAnalytics: {
+          select: {
+            streakCurrent: true,
+            streakMax: true,
+          },
+        },
+      },
+      orderBy: { totalSolved: "desc" },
+    }),
+    listFriendshipsForUser(currentUserId),
+  ]);
+
+  const friendSet = new Set(
+    friendships.map((friendship) =>
+      friendship.userAId === currentUserId ? friendship.userBId : friendship.userAId,
+    ),
+  );
+
+  let data = rawUsers.map((user) => ({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    image_url: user.image_url,
+    totalSolved: user.totalSolved,
+    easySolved: user.easyCount,
+    mediumSolved: user.mediumCount,
+    hardSolved: user.hardCount,
+    streakCurrent: user.userAnalytics?.streakCurrent ?? 0,
+    streakMax: user.userAnalytics?.streakMax ?? 0,
+    currentRating: user.currentRating,
+    isFriend: friendSet.has(user.id),
+    isSelf: user.id === currentUserId,
+  }));
+
+  if (friendFilter === "true") {
+    data = data.filter((user) => user.isFriend);
+  } else if (friendFilter === "false") {
+    data = data.filter((user) => !user.isFriend);
+  }
+
+  if (minStreak > 0) {
+    data = data.filter((user) => user.streakCurrent >= minStreak);
+  }
+
+  const response = ApiResponse.success(data, "Users fetched successfully");
+  res.status(response.statusCode).json(response);
+});
+
+/**
+ * @route   GET /api/auth/users/:userId
+ * @desc    View public profile details of a user
+ * @access  Private
+ */
+export const getPublicUserProfile = asyncHandler(async (req, res) => {
+  const currentUserId = (req as any).user?.userId as string | undefined;
+  const targetUserId = req.params.userId as string;
+
+  if (!currentUserId) {
+    throw ApiError.unauthorized("Not authenticated");
+  }
+
+  if (!targetUserId) {
+    throw ApiError.badRequest("userId is required");
+  }
+
+  const [userAId, userBId] = getFriendPair(currentUserId, targetUserId);
+
+  const [user, friendship] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        image_url: true,
+        bio: true,
+        currentRating: true,
+        totalSolved: true,
+        easyCount: true,
+        mediumCount: true,
+        hardCount: true,
+        createdAt: true,
+        userAnalytics: {
+          select: {
+            streakCurrent: true,
+            streakMax: true,
+            lastActive: true,
+          },
+        },
+      },
+    }),
+    findFriendshipByPair(userAId, userBId),
+  ]);
+
+  if (!user) {
+    throw ApiError.notFound("User not found");
+  }
+
+  const response = ApiResponse.success(
+    {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      image_url: user.image_url,
+      bio: user.bio,
+      currentRating: user.currentRating,
+      totalSolved: user.totalSolved,
+      easySolved: user.easyCount,
+      mediumSolved: user.mediumCount,
+      hardSolved: user.hardCount,
+      streakCurrent: user.userAnalytics?.streakCurrent ?? 0,
+      streakMax: user.userAnalytics?.streakMax ?? 0,
+      lastActive: user.userAnalytics?.lastActive ?? null,
+      createdAt: user.createdAt,
+      isFriend: !!friendship,
+      isSelf: user.id === currentUserId,
+    },
+    "User profile fetched successfully",
+  );
+
+  res.status(response.statusCode).json(response);
+});
+
+/**
+ * @route   POST /api/auth/friends/:userId/toggle
+ * @desc    Toggle friendship between current user and target user
+ * @access  Private
+ */
+export const toggleFriend = asyncHandler(async (req, res) => {
+  const currentUserId = (req as any).user?.userId as string | undefined;
+  const targetUserId = req.params.userId as string;
+
+  if (!currentUserId) {
+    throw ApiError.unauthorized("Not authenticated");
+  }
+
+  if (!targetUserId) {
+    throw ApiError.badRequest("userId is required");
+  }
+
+  if (currentUserId === targetUserId) {
+    throw ApiError.badRequest("You cannot friend yourself");
+  }
+
+  const targetUser = await prisma.user.findUnique({
+    where: { id: targetUserId },
+    select: { id: true },
+  });
+
+  if (!targetUser) {
+    throw ApiError.notFound("User not found");
+  }
+
+  const [userAId, userBId] = getFriendPair(currentUserId, targetUserId);
+
+  const existing = await findFriendshipByPair(userAId, userBId);
+
+  let isFriend = false;
+  if (existing) {
+    await deleteFriendshipById(existing.id);
+    isFriend = false;
+  } else {
+    await createFriendshipByPair(userAId, userBId);
+    isFriend = true;
+  }
+
+  const response = ApiResponse.success(
+    { userId: targetUserId, isFriend },
+    isFriend ? "Friend added" : "Friend removed",
+  );
+  res.status(response.statusCode).json(response);
+});
