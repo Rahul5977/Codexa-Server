@@ -92,3 +92,47 @@ export const invalidateAnalysis = async (req: Request, res: Response) => {
     return res.status(500).json({ error: "Failed to invalidate cache" });
   }
 };
+
+/**
+ * POST /api/analytics/analysis/custom
+ * Generate AI analysis for arbitrary code/runtime context (no submission required).
+ * Used by teacher grading flow when running student code on hidden test cases.
+ */
+export const generateCustomAnalysis = async (req: Request, res: Response) => {
+  const {
+    code,
+    language,
+    status,
+    executionTimeMs,
+    memoryKb,
+    problemTitle,
+    difficulty,
+  } = req.body || {};
+
+  if (!code || typeof code !== "string") {
+    return res.status(400).json({ error: "code is required" });
+  }
+
+  if (!language || typeof language !== "string") {
+    return res.status(400).json({ error: "language is required" });
+  }
+
+  try {
+    const report = await generateAIAnalysis({
+      // Use a unique synthetic ID to avoid colliding with real submission cache keys.
+      submissionId: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+      code,
+      language,
+      status: typeof status === "string" ? status : "ACCEPTED",
+      executionTimeMs: Number(executionTimeMs) || 0,
+      memoryKb: Number(memoryKb) || 0,
+      problemTitle: typeof problemTitle === "string" ? problemTitle : undefined,
+      difficulty: typeof difficulty === "string" ? difficulty : undefined,
+    });
+
+    return res.json({ success: true, data: report });
+  } catch (error: any) {
+    console.error("Custom AI Analysis error:", error.message);
+    return res.status(500).json({ error: `Failed to generate analysis: ${error.message}` });
+  }
+};

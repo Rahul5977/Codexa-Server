@@ -13,6 +13,7 @@ import {
 import {
   getAnalysis,
   invalidateAnalysis,
+  generateCustomAnalysis,
 } from "../controllers/ai-analysis.controller.js";
 
 const router = Router();
@@ -56,6 +57,7 @@ router.get("/problem/:problemId", problemStats);
 
 // Get (or generate) AI analysis report for a submission
 router.get("/analysis/:submissionId", getAnalysis);
+router.post("/analysis/custom", generateCustomAnalysis);
 
 // Force-invalidate cached analysis (so it regenerates next time)
 router.delete("/analysis/:submissionId", invalidateAnalysis);
