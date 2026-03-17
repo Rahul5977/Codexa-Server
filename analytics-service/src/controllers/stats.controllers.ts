@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import {
   getSelfReflectionDashboard,
   getActivityHeatmap,
+  getTimeframeAnalyticsData,
   getTopicStrengths,
   getEfficiencyMetrics,
   getHeadToHead,
@@ -83,6 +84,33 @@ export const getHeatmap = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error("Heatmap error:", error.message);
     return res.status(500).json({ error: "Failed to fetch heatmap" });
+  }
+};
+
+/**
+ * GET /api/analytics/timeframe/:userId?period=weekly|monthly|yearly
+ * Time-scoped analytics for charts and summary cards
+ */
+export const getTimeframeAnalytics = async (req: Request, res: Response) => {
+  try {
+    const userId = req.params.userId as string;
+    const period = (req.query.period as string | undefined) || "weekly";
+
+    if (!userId) return res.status(400).json({ error: "userId is required" });
+    if (!["weekly", "monthly", "yearly"].includes(period)) {
+      return res
+        .status(400)
+        .json({ error: "period must be one of: weekly, monthly, yearly" });
+    }
+
+    const data = await getTimeframeAnalyticsData(
+      userId,
+      period as "weekly" | "monthly" | "yearly",
+    );
+    return res.json({ success: true, data });
+  } catch (error: any) {
+    console.error("Timeframe analytics error:", error.message);
+    return res.status(500).json({ error: "Failed to fetch timeframe analytics" });
   }
 };
 

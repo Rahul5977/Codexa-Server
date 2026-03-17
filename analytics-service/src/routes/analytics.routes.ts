@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   getDashboard,
   getHeatmap,
+  getTimeframeAnalytics,
   getTopics,
   getEfficiency,
   headToHead,
@@ -22,6 +23,7 @@ router.get("/dashboard/:userId", getDashboard);
 
 // Individual endpoints for lazy loading
 router.get("/heatmap/:userId", getHeatmap);
+router.get("/timeframe/:userId", getTimeframeAnalytics);
 router.get("/topics/:userId", getTopics);
 router.get("/efficiency/:userId", getEfficiency);
 router.get("/rank/:userId", getRank);

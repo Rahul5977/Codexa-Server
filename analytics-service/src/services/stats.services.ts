@@ -1,5 +1,141 @@
 import { prisma, Prisma } from "@codexa/db";
 
+type AnalyticsPeriod = "weekly" | "monthly" | "yearly";
+
+type TimeBucket = {
+  key: string;
+  label: string;
+  solved: number;
+  start: Date;
+  end: Date;
+};
+
+const startOfUtcDay = (date: Date) =>
+  new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+
+const endOfUtcDay = (date: Date) =>
+  new Date(
+    Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate(),
+      23,
+      59,
+      59,
+      999,
+    ),
+  );
+
+const formatUtcDateKey = (date: Date) => {
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(date.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
+
+const formatUtcMonthKey = (date: Date) => {
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+  return `${y}-${m}`;
+};
+
+const getRangeForPeriod = (period: AnalyticsPeriod) => {
+  const now = new Date();
+  const todayStart = startOfUtcDay(now);
+  const todayEnd = endOfUtcDay(now);
+
+  if (period === "weekly") {
+    // Fixed calendar week: Monday -> Sunday
+    const dayOfWeek = todayStart.getUTCDay(); // 0 = Sun, 1 = Mon, ...
+    const daysSinceMonday = (dayOfWeek + 6) % 7;
+    const start = new Date(todayStart);
+    start.setUTCDate(start.getUTCDate() - daysSinceMonday);
+
+    const end = new Date(start);
+    end.setUTCDate(end.getUTCDate() + 6);
+    end.setUTCHours(23, 59, 59, 999);
+
+    return { start, end };
+  }
+
+  if (period === "monthly") {
+    // Fixed calendar month: 1st -> last day of current month
+    const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const end = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999),
+    );
+    return { start, end };
+  }
+
+  // Fixed calendar year: Jan -> Dec of current year
+  const start = new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
+  const end = new Date(Date.UTC(now.getUTCFullYear(), 11, 31, 23, 59, 59, 999));
+  return { start, end };
+};
+
+const buildTimeBuckets = (
+  period: AnalyticsPeriod,
+  start: Date,
+  end: Date,
+): TimeBucket[] => {
+  const buckets: TimeBucket[] = [];
+
+  if (period === "yearly") {
+    const cursor = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1));
+    while (cursor <= end) {
+      const bucketStart = new Date(cursor);
+      const bucketEnd = new Date(
+        Date.UTC(
+          cursor.getUTCFullYear(),
+          cursor.getUTCMonth() + 1,
+          0,
+          23,
+          59,
+          59,
+          999,
+        ),
+      );
+
+      buckets.push({
+        key: formatUtcMonthKey(bucketStart),
+        label: bucketStart.toLocaleDateString("en-US", {
+          month: "short",
+          timeZone: "UTC",
+        }),
+        solved: 0,
+        start: bucketStart,
+        end: bucketEnd,
+      });
+
+      cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+    }
+
+    return buckets;
+  }
+
+  const cursor = new Date(start);
+  while (cursor <= end) {
+    const bucketStart = startOfUtcDay(cursor);
+    const bucketEnd = endOfUtcDay(cursor);
+
+    buckets.push({
+      key: formatUtcDateKey(bucketStart),
+      label: bucketStart.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        timeZone: "UTC",
+      }),
+      solved: 0,
+      start: bucketStart,
+      end: bucketEnd,
+    });
+
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  return buckets;
+};
+
 // ================================================================
 // HELPER: Fetch Problem Stats from Problem Service
 // ================================================================
@@ -156,6 +292,103 @@ export const getActivityHeatmap = async (userId: string) => {
       totalActiveDays,
       maxInDay,
       totalSubmissions,
+    },
+  };
+};
+
+/**
+ * Timeframe analytics for weekly/monthly/yearly chart tabs.
+ */
+export const getTimeframeAnalyticsData = async (
+  userId: string,
+  period: AnalyticsPeriod,
+) => {
+  const { start, end } = getRangeForPeriod(period);
+  const buckets = buildTimeBuckets(period, start, end);
+
+  const solvedProblems = await prisma.userSolvedProblem.findMany({
+    where: {
+      userId,
+      solvedAt: {
+        gte: start,
+        lte: end,
+      },
+    },
+    select: {
+      solvedAt: true,
+      difficulty: true,
+      problem: {
+        select: {
+          tags: true,
+        },
+      },
+    },
+    orderBy: {
+      solvedAt: "asc",
+    },
+  });
+
+  const bucketByKey = new Map(buckets.map((b) => [b.key, b]));
+  const tagsCount: Record<string, number> = {};
+  const difficultyCount: Record<string, number> = {
+    EASY: 0,
+    MEDIUM: 0,
+    HARD: 0,
+  };
+
+  for (const solved of solvedProblems) {
+    const key =
+      period === "yearly"
+        ? formatUtcMonthKey(solved.solvedAt)
+        : formatUtcDateKey(solved.solvedAt);
+
+    const bucket = bucketByKey.get(key);
+    if (bucket) bucket.solved += 1;
+
+    difficultyCount[solved.difficulty] = (difficultyCount[solved.difficulty] || 0) + 1;
+
+    for (const tag of solved.problem.tags || []) {
+      tagsCount[tag] = (tagsCount[tag] || 0) + 1;
+    }
+  }
+
+  const solvedOverTime = buckets.map((bucket) => ({
+    key: bucket.key,
+    label: bucket.label,
+    solved: bucket.solved,
+  }));
+
+  const byTag = Object.entries(tagsCount)
+    .map(([tag, count]) => ({ tag, solved: count }))
+    .sort((a, b) => b.solved - a.solved)
+    .slice(0, 8);
+
+  const byDifficulty = [
+    { difficulty: "Easy", solved: difficultyCount.EASY || 0 },
+    { difficulty: "Medium", solved: difficultyCount.MEDIUM || 0 },
+    { difficulty: "Hard", solved: difficultyCount.HARD || 0 },
+  ];
+
+  const totalSolved = solvedProblems.length;
+  const activeBuckets = solvedOverTime.filter((item) => item.solved > 0).length;
+  const maxSolved = solvedOverTime.reduce((max, item) => Math.max(max, item.solved), 0);
+  const bestBucket = solvedOverTime.find((item) => item.solved === maxSolved) || null;
+
+  return {
+    period,
+    range: {
+      start: start.toISOString(),
+      end: end.toISOString(),
+    },
+    solvedOverTime,
+    byTag,
+    byDifficulty,
+    summary: {
+      totalSolved,
+      activeBuckets,
+      avgSolvedPerActiveBucket:
+        activeBuckets > 0 ? Number((totalSolved / activeBuckets).toFixed(2)) : 0,
+      bestBucket,
     },
   };
 };
