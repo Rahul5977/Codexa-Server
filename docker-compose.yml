@@ -182,7 +182,7 @@ services:
   code-service:
     build:
       context: .
-      dockerfile: code-service/Dockerfile
+      dockerfile: code-service/DockerFile
       target: ${BUILD_TARGET:-development}
     container_name: codexa-code-service
     ports:
@@ -215,7 +215,7 @@ services:
   analytics-service:
     build:
       context: .
-      dockerfile: analytics-service/Dockerfile
+      dockerfile: analytics-service/DockerFile
       target: ${BUILD_TARGET:-development}
     container_name: codexa-analytics-service
     ports:
@@ -245,7 +245,7 @@ services:
   ai-analytics-service:
     build:
       context: .
-      dockerfile: ai-analytics-service/Dockerfile
+      dockerfile: ai-analytics-service/DockerFile
       target: ${BUILD_TARGET:-development}
     container_name: codexa-ai-analytics-service
     ports:

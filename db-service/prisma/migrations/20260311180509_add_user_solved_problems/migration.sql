@@ -6,8 +6,8 @@
   - Made the column `duration` on table `exams` required. This step will fail if there are existing NULL values in that column.
 
 */
--- DropIndex
-DROP INDEX "exams_deadline_idx";
+-- DropIndex (conditional)
+DROP INDEX IF EXISTS "exams_deadline_idx";
 
 -- AlterTable
 ALTER TABLE "Problem" ALTER COLUMN "codeStubs" DROP NOT NULL;
