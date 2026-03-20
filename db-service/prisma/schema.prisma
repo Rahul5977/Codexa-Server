@@ -73,6 +73,7 @@ model User {
   assignmentSubmissions AssignmentSubmission[]
   examSubmissions       ExamSubmission[]
   assignmentDrafts      AssignmentDraft[]
+  ideWorkspace          IdeWorkspace?
 
   // Social relations
   friendshipsInitiated Friendship[] @relation("FriendshipUserA")
@@ -464,4 +465,26 @@ model ExamSubmission {
   @@index([examId])
   @@index([studentId])
   @@map("exam_submissions")
+}
+
+model IdeWorkspace {
+  id String @id @default(uuid())
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tree               Json
+  fileContents       Json
+  selectedNodeId     String?
+  selectedLanguageId String?
+  stdin              String? @db.Text
+  stdinMode          String?
+  selectedStdinFileId String?
+  expandedFolderIds  Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("ide_workspaces")
 }

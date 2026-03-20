@@ -1,6 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import submissionRoutes from "./routes/submission.routes";
+import ideWorkspaceRoutes from "./routes/ide-workspace.routes";
 import { connectRedis, isRedisConnected } from "./config/redis.js";
 import cors from 'cors'
 
@@ -11,6 +12,9 @@ app.use(express.json());
 app.use(cors())
 // Routes
 app.use("/api/submissions", submissionRoutes);
+console.log("✅ Submissions routes registered");
+app.use("/api/ide-workspace", ideWorkspaceRoutes);
+console.log("✅ IDE Workspace routes registered");
 
 const PORT = process.env.PORT || 3003;
 const isDevelopment = process.env.NODE_ENV === "development";
