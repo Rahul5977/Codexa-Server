@@ -22,7 +22,7 @@ RUN npm ci --prefer-offline || npm ci
 
 # Generate Prisma Client (provide dummy DATABASE_URL for build time)
 WORKDIR /app/db-service
-RUN DATABASE_URL="postgresql://dummy:dummy@dummy:5432/dummy" npx prisma generate
+RUN NODE_PATH=/app/node_modules DATABASE_URL="postgresql://dummy:dummy@dummy:5432/dummy" npx prisma generate
 
 # ==========================================
 # STAGE 2: Development Image (Hot Reload)
