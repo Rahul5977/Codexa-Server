@@ -73,6 +73,7 @@ model User {
   assignmentSubmissions AssignmentSubmission[]
   examSubmissions       ExamSubmission[]
   assignmentDrafts      AssignmentDraft[]
+  assignmentIdeDrafts   AssignmentIdeDraft[]
   ideWorkspace          IdeWorkspace?
 
   // Social relations
@@ -100,6 +101,11 @@ enum Difficulty {
   EASY
   MEDIUM
   HARD
+}
+
+enum AssignmentType {
+  DSA
+  IDE
 }
 
 model Problem {
@@ -308,10 +314,12 @@ model ClassroomEnrollment {
 // Assignment and Exam Models
 model Assignment {
   id          String   @id @default(uuid())
+  type        AssignmentType @default(DSA)
   title       String
   subtitle    String?
   description String?
   deadline    DateTime
+  ideFiles    Json?
 
   classroomId String
   classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
@@ -323,6 +331,7 @@ model Assignment {
   problems    AssignmentProblem[]
   submissions AssignmentSubmission[]
   drafts      AssignmentDraft[]
+  ideDrafts   AssignmentIdeDraft[]
 
   @@index([classroomId])
   @@index([deadline])
@@ -353,6 +362,9 @@ model AssignmentSubmission {
   // Structure: { "problemId1": { "code": "...", "language": "python" }, ... }
   solutions Json
 
+  // Snapshot of IDE workspace for IDE assignments
+  ideWorkspace Json?
+
   // Grading fields
   grade    Int?    // 0-100, null if not graded yet
   feedback String? // Teacher's feedback
@@ -367,6 +379,25 @@ model AssignmentSubmission {
   @@index([assignmentId])
   @@index([studentId])
   @@map("assignment_submissions")
+}
+
+model AssignmentIdeDraft {
+  id           String @id @default(uuid())
+  assignmentId String
+  studentId    String
+
+  workspace Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student    User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, studentId])
+  @@index([assignmentId])
+  @@index([studentId])
+  @@map("assignment_ide_drafts")
 }
 
 model AssignmentDraft {

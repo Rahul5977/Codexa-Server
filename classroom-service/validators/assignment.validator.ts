@@ -1,9 +1,30 @@
 import { z } from "zod";
 
+const assignmentTypeSchema = z.enum(["DSA", "IDE"]);
+
+const ideFileSchema = z.object({
+  name: z.string().min(1, "File name is required").max(255, "File name is too long"),
+  mimeType: z.string().min(1, "File type is required").max(120, "Invalid file type"),
+  size: z.number().int().nonnegative("Invalid file size"),
+  content: z.string(), // Allow empty content for now (files might not have readable content)
+});
+
+const ideWorkspaceSchema = z.object({
+  tree: z.any(),
+  fileContents: z.record(z.string()),
+  selectedNodeId: z.string().nullable().optional(),
+  selectedLanguageId: z.string().optional(),
+  stdin: z.string().optional(),
+  stdinMode: z.enum(["manual", "file"]).optional(),
+  selectedStdinFileId: z.string().nullable().optional(),
+  expandedFolderIds: z.array(z.string()).optional(),
+});
+
 /**
  * Schema for creating an assignment
  */
 export const createAssignmentSchema = z.object({
+  type: assignmentTypeSchema.default("DSA"),
   title: z
     .string()
     .min(1, "Assignment title is required")
@@ -27,7 +48,25 @@ export const createAssignmentSchema = z.object({
         order: z.number().int().positive("Order must be a positive integer"),
       }),
     )
-    .min(1, "At least one problem is required"),
+    .optional()
+    .default([]),
+  ideFiles: z.array(ideFileSchema).optional().default([]),
+}).superRefine((data, ctx) => {
+  if (data.type === "DSA" && (!data.problems || data.problems.length === 0)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["problems"],
+      message: "At least one problem is required for DSA assignments",
+    });
+  }
+
+  if (data.type === "IDE" && (!data.ideFiles || data.ideFiles.length === 0)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["ideFiles"],
+      message: "At least one file is required for IDE assignments",
+    });
+  }
 });
 
 /**
@@ -81,10 +120,19 @@ export const submitAssignmentSchema = z.object({
           .max(50, "Language must be at most 50 characters"),
       }),
     )
-    .refine(
-      (solutions) => Object.keys(solutions).length > 0,
-      "At least one solution is required",
-    ),
+    .optional(),
+  ideWorkspace: ideWorkspaceSchema.optional(),
+}).superRefine((data, ctx) => {
+  const hasSolutions = data.solutions && Object.keys(data.solutions).length > 0;
+  const hasWorkspace = !!data.ideWorkspace;
+
+  if (!hasSolutions && !hasWorkspace) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["solutions"],
+      message: "Provide either DSA solutions or an IDE workspace",
+    });
+  }
 });
 
 /**

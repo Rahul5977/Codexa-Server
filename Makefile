@@ -121,6 +121,8 @@ migrate:
 generate:
 	@echo "🔧 Generating Prisma client..."
 	docker-compose exec -w /app/db-service auth-service npx prisma generate
+	docker-compose exec -w /app/db-service classroom-service npx prisma generate
+	docker-compose exec -w /app/db-service classroom-service npm run build
 	@echo "✅ Prisma client generated"
 
 studio:
