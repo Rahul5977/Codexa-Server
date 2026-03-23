@@ -425,11 +425,13 @@ model AssignmentDraft {
 
 model Exam {
   id          String   @id @default(uuid())
+  type        AssignmentType @default(DSA)
   title       String
   subtitle    String?
   description String?
   startTime   DateTime // When exam becomes available to start
   duration    Int      // Duration in minutes (required)
+  ideFiles    Json?
 
   classroomId String
   classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
@@ -469,6 +471,9 @@ model ExamSubmission {
   // JSON containing solutions for each problem
   // Structure: { "problemId1": { "code": "...", "language": "python" }, ... }
   solutions Json @default("{}")
+
+  // Snapshot of IDE workspace for IDE exams
+  ideWorkspace Json?
 
   // Exam timing
   startedAt   DateTime  @default(now()) // When student started the exam

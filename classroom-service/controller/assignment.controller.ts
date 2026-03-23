@@ -318,45 +318,65 @@ export const createExam = asyncHandler(async (req, res) => {
     // Verify teacher owns this classroom
     await verifyClassroomTeacher(classroomId, req.user.userId);
 
-    // Verify all problems exist
-    const problemIds = validatedData.problems.map((p) => p.problemId);
-    const existingProblems = await prisma.problem.findMany({
-      where: { id: { in: problemIds } },
-      select: { id: true },
-    });
+    if (validatedData.type === "DSA") {
+      // Verify all problems exist
+      const problemIds = validatedData.problems.map((p) => p.problemId);
+      const existingProblems = await prisma.problem.findMany({
+        where: { id: { in: problemIds } },
+        select: { id: true },
+      });
 
-    if (existingProblems.length !== problemIds.length) {
-      throw new ApiError(400, "One or more problems not found");
-    }
+      if (existingProblems.length !== problemIds.length) {
+        throw new ApiError(400, "One or more problems not found");
+      }
 
-    // Check for duplicate orders
-    const orders = validatedData.problems.map((p) => p.order);
-    if (new Set(orders).size !== orders.length) {
-      throw new ApiError(400, "Problem orders must be unique");
+      // Check for duplicate orders
+      const orders = validatedData.problems.map((p) => p.order);
+      if (new Set(orders).size !== orders.length) {
+        throw new ApiError(400, "Problem orders must be unique");
+      }
     }
 
     // Create exam with transaction
     const result = await prisma.$transaction(async (tx) => {
+      let ideFilesData: any = [];
+      if (
+        validatedData.type === "IDE" &&
+        validatedData.ideFiles &&
+        Array.isArray(validatedData.ideFiles)
+      ) {
+        ideFilesData = validatedData.ideFiles.map((file: any) => ({
+          name: file.name,
+          mimeType: file.mimeType,
+          size: file.size,
+          content: file.content,
+        }));
+      }
+
       // Create exam
       const exam = await tx.exam.create({
         data: {
+          type: validatedData.type,
           title: validatedData.title,
           subtitle: validatedData.subtitle,
           description: validatedData.description,
           startTime: validatedData.startTime,
           duration: validatedData.duration,
+          ideFiles: ideFilesData,
           classroomId,
         },
       });
 
-      // Add problems to exam
-      await tx.examProblem.createMany({
-        data: validatedData.problems.map((p) => ({
-          examId: exam.id,
-          problemId: p.problemId,
-          order: p.order,
-        })),
-      });
+      if (validatedData.type === "DSA") {
+        // Add problems to exam
+        await tx.examProblem.createMany({
+          data: validatedData.problems.map((p) => ({
+            examId: exam.id,
+            problemId: p.problemId,
+            order: p.order,
+          })),
+        });
+      }
 
       // Return exam with problems
       return await tx.exam.findUnique({
@@ -916,23 +936,37 @@ export const submitExam = asyncHandler(async (req, res) => {
       throw new ApiError(400, "Exam deadline has passed");
     }
 
-    // Verify all required problems have solutions
-    const examProblemIds = exam.problems.map((p) => p.problemId);
-    const submittedProblemIds = Object.keys(validatedData.solutions);
+    let normalizedSolutions = {};
+    let normalizedIdeWorkspace = null;
 
-    const missingProblems = examProblemIds.filter(
-      (id) => !submittedProblemIds.includes(id),
-    );
-    if (missingProblems.length > 0) {
-      throw new ApiError(400, "Solutions required for all exam problems");
-    }
+    if (exam.type === "DSA") {
+      const solutions = validatedData.solutions || {};
+      const examProblemIds = exam.problems.map((p) => p.problemId);
+      const submittedProblemIds = Object.keys(solutions);
 
-    // Check for extra problems not in exam
-    const extraProblems = submittedProblemIds.filter(
-      (id) => !examProblemIds.includes(id),
-    );
-    if (extraProblems.length > 0) {
-      throw new ApiError(400, "Solutions contain problems not in this exam");
+      // Verify all required problems have solutions
+      const missingProblems = examProblemIds.filter(
+        (id) => !submittedProblemIds.includes(id),
+      );
+      if (missingProblems.length > 0) {
+        throw new ApiError(400, "Solutions required for all exam problems");
+      }
+
+      // Check for extra problems not in exam
+      const extraProblems = submittedProblemIds.filter(
+        (id) => !examProblemIds.includes(id),
+      );
+      if (extraProblems.length > 0) {
+        throw new ApiError(400, "Solutions contain problems not in this exam");
+      }
+
+      normalizedSolutions = solutions;
+    } else {
+      if (!validatedData.ideWorkspace) {
+        throw new ApiError(400, "IDE workspace is required for IDE exams");
+      }
+
+      normalizedIdeWorkspace = validatedData.ideWorkspace;
     }
 
     // Create or update submission
@@ -946,10 +980,12 @@ export const submitExam = asyncHandler(async (req, res) => {
       create: {
         examId,
         studentId: req.user.userId,
-        solutions: validatedData.solutions,
+        solutions: normalizedSolutions,
+        ideWorkspace: normalizedIdeWorkspace,
       },
       update: {
-        solutions: validatedData.solutions,
+        solutions: normalizedSolutions,
+        ideWorkspace: normalizedIdeWorkspace,
         updatedAt: new Date(),
       },
       include: {
@@ -1040,6 +1076,7 @@ export const startExam = asyncHandler(async (req, res) => {
       examId,
       studentId: req.user.userId,
       solutions: {},
+      ideWorkspace: null,
       startedAt: new Date(),
     },
     include: {
@@ -1138,6 +1175,7 @@ export const updateExamSubmission = asyncHandler(async (req, res) => {
       include: {
         exam: {
           select: {
+            type: true,
             startTime: true,
             duration: true,
           },
@@ -1160,6 +1198,23 @@ export const updateExamSubmission = asyncHandler(async (req, res) => {
       throw new ApiError(400, "Exam time limit has been exceeded");
     }
 
+    let normalizedSolutions = {};
+    let normalizedIdeWorkspace = null;
+
+    if (submission.exam.type === "DSA") {
+      if (!validatedData.solutions || Object.keys(validatedData.solutions).length === 0) {
+        throw new ApiError(400, "At least one solution is required for DSA exams");
+      }
+
+      normalizedSolutions = validatedData.solutions;
+    } else {
+      if (!validatedData.ideWorkspace) {
+        throw new ApiError(400, "IDE workspace is required for IDE exams");
+      }
+
+      normalizedIdeWorkspace = validatedData.ideWorkspace;
+    }
+
     // Update submission
     const updatedSubmission = await prisma.examSubmission.update({
       where: {
@@ -1169,7 +1224,8 @@ export const updateExamSubmission = asyncHandler(async (req, res) => {
         },
       },
       data: {
-        solutions: validatedData.solutions,
+        solutions: normalizedSolutions,
+        ideWorkspace: normalizedIdeWorkspace,
         updatedAt: new Date(),
       },
     });
