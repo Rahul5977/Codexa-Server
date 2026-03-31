@@ -13,7 +13,7 @@ In short, Codexa tries to make coding practice more organized, fair, and helpful
 
 ---
 
-## Moto and Vision (Simple Meaning)
+## Motto and Vision (Simple Meaning)
 
 The overall vision of Codexa is:
 
@@ -88,8 +88,6 @@ For teachers, Codexa reduces manual work and improves visibility into class perf
 
 ## Why this project matters
 
-Codexa is not only a coding tool; it is a **learning ecosystem**.
-It combines practice, evaluation, mentorship-style guidance, and analytics in one place.
+Codexa is a **learning ecosystem** that combines practice, evaluation, mentorship-style guidance, and analytics in one place.
 
 Its long-term value is helping more people learn programming in a structured, data-informed, and encouraging way.
-
