@@ -31,8 +31,8 @@ function formatZodErrors(error: ZodError): Record<string, string> {
 
 /**
  * @route   POST /api/classroom/create
- * @desc    Create a new classroom (Teacher only)
- * @access  Private (Teacher/Admin)
+ * @desc    Create a new classroom
+ * @access  Private (Any authenticated user)
  */
 export const createClassroom = asyncHandler(async (req: Request, res: Response) => {
   try {

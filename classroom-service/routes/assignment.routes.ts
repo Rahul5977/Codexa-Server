@@ -21,6 +21,8 @@ import {
   getDraft,
   getAssignmentDrafts,
   deleteAssignmentDrafts,
+  saveAssignmentIdeDraft,
+  getAssignmentIdeDraft,
   startExam,
   getMyExamSubmission,
   updateExamSubmission,
@@ -107,6 +109,16 @@ assignmentRoutes.delete(
   "/assignment/:assignmentId/drafts",
   authenticate,
   deleteAssignmentDrafts,
+);
+assignmentRoutes.post(
+  "/assignment/:assignmentId/ide-draft",
+  authenticate,
+  saveAssignmentIdeDraft,
+);
+assignmentRoutes.get(
+  "/assignment/:assignmentId/ide-draft",
+  authenticate,
+  getAssignmentIdeDraft,
 );
 
 // Exam management

@@ -20,7 +20,7 @@ RUN npm ci
 # Generate Prisma Client
 WORKDIR /app/db-service
 ENV DATABASE_URL="postgresql://user:password@postgres:5432/codexa?schema=public"
-RUN npx prisma generate
+RUN NODE_PATH=/app/node_modules npx prisma generate
 
 # ==========================================
 # STAGE 2: Development Image (Hot Reload)
@@ -53,7 +53,7 @@ RUN npm install -g nodemon tsx
 WORKDIR /app/classroom-service
 
 # Development command with hot reload
-CMD ["npm", "run", "dev"]
+CMD ["sh", "-c", "cd /app/db-service && npm run generate && npm run build && cd /app/classroom-service && npm run dev"]
 
 # ==========================================
 # STAGE 3: Builder (Production Build)

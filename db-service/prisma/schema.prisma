@@ -73,6 +73,8 @@ model User {
   assignmentSubmissions AssignmentSubmission[]
   examSubmissions       ExamSubmission[]
   assignmentDrafts      AssignmentDraft[]
+  assignmentIdeDrafts   AssignmentIdeDraft[]
+  ideWorkspace          IdeWorkspace?
 
   // Social relations
   friendshipsInitiated Friendship[] @relation("FriendshipUserA")
@@ -99,6 +101,11 @@ enum Difficulty {
   EASY
   MEDIUM
   HARD
+}
+
+enum AssignmentType {
+  DSA
+  IDE
 }
 
 model Problem {
@@ -307,10 +314,12 @@ model ClassroomEnrollment {
 // Assignment and Exam Models
 model Assignment {
   id          String   @id @default(uuid())
+  type        AssignmentType @default(DSA)
   title       String
   subtitle    String?
   description String?
   deadline    DateTime
+  ideFiles    Json?
 
   classroomId String
   classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
@@ -322,6 +331,7 @@ model Assignment {
   problems    AssignmentProblem[]
   submissions AssignmentSubmission[]
   drafts      AssignmentDraft[]
+  ideDrafts   AssignmentIdeDraft[]
 
   @@index([classroomId])
   @@index([deadline])
@@ -352,6 +362,9 @@ model AssignmentSubmission {
   // Structure: { "problemId1": { "code": "...", "language": "python" }, ... }
   solutions Json
 
+  // Snapshot of IDE workspace for IDE assignments
+  ideWorkspace Json?
+
   // Grading fields
   grade    Int?    // 0-100, null if not graded yet
   feedback String? // Teacher's feedback
@@ -366,6 +379,25 @@ model AssignmentSubmission {
   @@index([assignmentId])
   @@index([studentId])
   @@map("assignment_submissions")
+}
+
+model AssignmentIdeDraft {
+  id           String @id @default(uuid())
+  assignmentId String
+  studentId    String
+
+  workspace Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student    User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, studentId])
+  @@index([assignmentId])
+  @@index([studentId])
+  @@map("assignment_ide_drafts")
 }
 
 model AssignmentDraft {
@@ -393,11 +425,13 @@ model AssignmentDraft {
 
 model Exam {
   id          String   @id @default(uuid())
+  type        AssignmentType @default(DSA)
   title       String
   subtitle    String?
   description String?
   startTime   DateTime // When exam becomes available to start
   duration    Int      // Duration in minutes (required)
+  ideFiles    Json?
 
   classroomId String
   classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
@@ -438,6 +472,9 @@ model ExamSubmission {
   // Structure: { "problemId1": { "code": "...", "language": "python" }, ... }
   solutions Json @default("{}")
 
+  // Snapshot of IDE workspace for IDE exams
+  ideWorkspace Json?
+
   // Exam timing
   startedAt   DateTime  @default(now()) // When student started the exam
   submittedAt DateTime? // When student submitted (null if auto-submitted)
@@ -464,4 +501,26 @@ model ExamSubmission {
   @@index([examId])
   @@index([studentId])
   @@map("exam_submissions")
+}
+
+model IdeWorkspace {
+  id String @id @default(uuid())
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tree               Json
+  fileContents       Json
+  selectedNodeId     String?
+  selectedLanguageId String?
+  stdin              String? @db.Text
+  stdinMode          String?
+  selectedStdinFileId String?
+  expandedFolderIds  Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("ide_workspaces")
 }

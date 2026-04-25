@@ -20,7 +20,7 @@ RUN npm ci
 # Generate Prisma Client (with dummy DATABASE_URL for build time)
 WORKDIR /app/db-service
 ENV DATABASE_URL="postgresql://user:password@postgres:5432/codexa?schema=public"
-RUN npx prisma generate
+RUN NODE_PATH=/app/node_modules npx prisma generate
 
 # ==========================================
 # STAGE 2: Development Image (Hot Reload)

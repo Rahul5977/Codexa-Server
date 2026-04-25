@@ -12,8 +12,9 @@ const app = express();
 app.use(cors());
 
 // Body parsing middleware
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+// IDE assignments can include base64-encoded PDFs/datasets, so keep a higher payload cap.
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 app.set("trust proxy", 1);
 
@@ -51,6 +52,15 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
       message: err.message,
       success: err.success,
       errors: err.errors,
+    });
+  }
+
+  if (err?.type === "entity.too.large" || err?.status === 413) {
+    return res.status(413).json({
+      statusCode: 413,
+      message: "Uploaded assignment files are too large",
+      success: false,
+      errors: ["Reduce file sizes or upload fewer files at once"],
     });
   }
 

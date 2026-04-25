@@ -91,44 +91,61 @@ export const createAssignment = asyncHandler(async (req, res) => {
     // Verify teacher owns this classroom
     await verifyClassroomTeacher(classroomId, req.user.userId);
 
-    // Verify all problems exist
-    const problemIds = validatedData.problems.map((p) => p.problemId);
-    const existingProblems = await prisma.problem.findMany({
-      where: { id: { in: problemIds } },
-      select: { id: true },
-    });
+    if (validatedData.type === "DSA") {
+      // Verify all problems exist
+      const problemIds = validatedData.problems.map((p) => p.problemId);
+      const existingProblems = await prisma.problem.findMany({
+        where: { id: { in: problemIds } },
+        select: { id: true },
+      });
 
-    if (existingProblems.length !== problemIds.length) {
-      throw new ApiError(400, "One or more problems not found");
-    }
+      if (existingProblems.length !== problemIds.length) {
+        throw new ApiError(400, "One or more problems not found");
+      }
 
-    // Check for duplicate orders
-    const orders = validatedData.problems.map((p) => p.order);
-    if (new Set(orders).size !== orders.length) {
-      throw new ApiError(400, "Problem orders must be unique");
+      // Check for duplicate orders
+      const orders = validatedData.problems.map((p) => p.order);
+      if (new Set(orders).size !== orders.length) {
+        throw new ApiError(400, "Problem orders must be unique");
+      }
     }
 
     // Create assignment with transaction
     const result = await prisma.$transaction(async (tx) => {
-      // Create assignment
+      // Create assignment - ensure ideFiles is properly structured
+      let ideFilesData: any = [];
+      
+      if (validatedData.type === "IDE" && validatedData.ideFiles && Array.isArray(validatedData.ideFiles)) {
+        ideFilesData = validatedData.ideFiles.map((file: any) => ({
+          name: file.name,
+          mimeType: file.mimeType,
+          size: file.size,
+          content: file.content,
+        }));
+      }
+      
       const assignment = await tx.assignment.create({
         data: {
+          type: validatedData.type,
           title: validatedData.title,
           subtitle: validatedData.subtitle,
           description: validatedData.description,
           deadline: validatedData.deadline,
+          ideFiles: ideFilesData,
           classroomId,
         },
       });
 
-      // Add problems to assignment
-      await tx.assignmentProblem.createMany({
-        data: validatedData.problems.map((p) => ({
-          assignmentId: assignment.id,
-          problemId: p.problemId,
-          order: p.order,
-        })),
-      });
+      if (validatedData.type === "DSA") {
+        // Add problems to assignment
+        await tx.assignmentProblem.createMany({
+          data: validatedData.problems.map((p) => ({
+            assignmentId: assignment.id,
+            problemId: p.problemId,
+            order: p.order,
+          })),
+        });
+      }
 
       // Return assignment with problems
       return await tx.assignment.findUnique({
@@ -187,6 +204,7 @@ export const createAssignment = asyncHandler(async (req, res) => {
         Object.values(formattedErrors),
       );
     }
+    console.error("Error creating assignment:", error);
     throw error;
   }
 });
@@ -300,45 +318,65 @@ export const createExam = asyncHandler(async (req, res) => {
     // Verify teacher owns this classroom
     await verifyClassroomTeacher(classroomId, req.user.userId);
 
-    // Verify all problems exist
-    const problemIds = validatedData.problems.map((p) => p.problemId);
-    const existingProblems = await prisma.problem.findMany({
-      where: { id: { in: problemIds } },
-      select: { id: true },
-    });
+    if (validatedData.type === "DSA") {
+      // Verify all problems exist
+      const problemIds = validatedData.problems.map((p) => p.problemId);
+      const existingProblems = await prisma.problem.findMany({
+        where: { id: { in: problemIds } },
+        select: { id: true },
+      });
 
-    if (existingProblems.length !== problemIds.length) {
-      throw new ApiError(400, "One or more problems not found");
-    }
+      if (existingProblems.length !== problemIds.length) {
+        throw new ApiError(400, "One or more problems not found");
+      }
 
-    // Check for duplicate orders
-    const orders = validatedData.problems.map((p) => p.order);
-    if (new Set(orders).size !== orders.length) {
-      throw new ApiError(400, "Problem orders must be unique");
+      // Check for duplicate orders
+      const orders = validatedData.problems.map((p) => p.order);
+      if (new Set(orders).size !== orders.length) {
+        throw new ApiError(400, "Problem orders must be unique");
+      }
     }
 
     // Create exam with transaction
     const result = await prisma.$transaction(async (tx) => {
+      let ideFilesData: any = [];
+      if (
+        validatedData.type === "IDE" &&
+        validatedData.ideFiles &&
+        Array.isArray(validatedData.ideFiles)
+      ) {
+        ideFilesData = validatedData.ideFiles.map((file: any) => ({
+          name: file.name,
+          mimeType: file.mimeType,
+          size: file.size,
+          content: file.content,
+        }));
+      }
+
       // Create exam
       const exam = await tx.exam.create({
         data: {
+          type: validatedData.type,
           title: validatedData.title,
           subtitle: validatedData.subtitle,
           description: validatedData.description,
           startTime: validatedData.startTime,
           duration: validatedData.duration,
+          ideFiles: ideFilesData,
           classroomId,
         },
       });
 
-      // Add problems to exam
-      await tx.examProblem.createMany({
-        data: validatedData.problems.map((p) => ({
-          examId: exam.id,
-          problemId: p.problemId,
-          order: p.order,
-        })),
-      });
+      if (validatedData.type === "DSA") {
+        // Add problems to exam
+        await tx.examProblem.createMany({
+          data: validatedData.problems.map((p) => ({
+            examId: exam.id,
+            problemId: p.problemId,
+            order: p.order,
+          })),
+        });
+      }
 
       // Return exam with problems
       return await tx.exam.findUnique({
@@ -760,26 +798,41 @@ export const submitAssignment = asyncHandler(async (req, res) => {
       throw new ApiError(400, "Assignment deadline has passed");
     }
 
-    // Verify all required problems have solutions
-    const assignmentProblemIds = assignment.problems.map((p) => p.problemId);
-    const submittedProblemIds = Object.keys(validatedData.solutions);
+    let normalizedSolutions = {};
+    let normalizedIdeWorkspace = null;
 
-    const missingProblems = assignmentProblemIds.filter(
-      (id) => !submittedProblemIds.includes(id),
-    );
-    if (missingProblems.length > 0) {
-      throw new ApiError(400, "Solutions required for all assignment problems");
-    }
+    if (assignment.type === "DSA") {
+      const solutions = validatedData.solutions || {};
 
-    // Check for extra problems not in assignment
-    const extraProblems = submittedProblemIds.filter(
-      (id) => !assignmentProblemIds.includes(id),
-    );
-    if (extraProblems.length > 0) {
-      throw new ApiError(
-        400,
-        "Solutions contain problems not in this assignment",
+      // Verify all required problems have solutions
+      const assignmentProblemIds = assignment.problems.map((p) => p.problemId);
+      const submittedProblemIds = Object.keys(solutions);
+
+      const missingProblems = assignmentProblemIds.filter(
+        (id) => !submittedProblemIds.includes(id),
       );
+      if (missingProblems.length > 0) {
+        throw new ApiError(400, "Solutions required for all assignment problems");
+      }
+
+      // Check for extra problems not in assignment
+      const extraProblems = submittedProblemIds.filter(
+        (id) => !assignmentProblemIds.includes(id),
+      );
+      if (extraProblems.length > 0) {
+        throw new ApiError(
+          400,
+          "Solutions contain problems not in this assignment",
+        );
+      }
+
+      normalizedSolutions = solutions;
+    } else {
+      if (!validatedData.ideWorkspace) {
+        throw new ApiError(400, "IDE workspace is required for IDE assignments");
+      }
+
+      normalizedIdeWorkspace = validatedData.ideWorkspace;
     }
 
     // Create or update submission
@@ -793,10 +846,12 @@ export const submitAssignment = asyncHandler(async (req, res) => {
       create: {
         assignmentId,
         studentId: req.user.userId,
-        solutions: validatedData.solutions,
+        solutions: normalizedSolutions,
+        ideWorkspace: normalizedIdeWorkspace,
       },
       update: {
-        solutions: validatedData.solutions,
+        solutions: normalizedSolutions,
+        ideWorkspace: normalizedIdeWorkspace,
         updatedAt: new Date(),
       },
       include: {
@@ -810,8 +865,14 @@ export const submitAssignment = asyncHandler(async (req, res) => {
       },
     });
 
-    // Delete all drafts for this assignment after successful submission
+    // Delete stale drafts after successful submission
     await prisma.assignmentDraft.deleteMany({
+      where: {
+        assignmentId,
+        studentId: req.user.userId,
+      },
+    });
+    await prisma.assignmentIdeDraft.deleteMany({
       where: {
         assignmentId,
         studentId: req.user.userId,
@@ -875,23 +936,37 @@ export const submitExam = asyncHandler(async (req, res) => {
       throw new ApiError(400, "Exam deadline has passed");
     }
 
-    // Verify all required problems have solutions
-    const examProblemIds = exam.problems.map((p) => p.problemId);
-    const submittedProblemIds = Object.keys(validatedData.solutions);
+    let normalizedSolutions = {};
+    let normalizedIdeWorkspace = null;
 
-    const missingProblems = examProblemIds.filter(
-      (id) => !submittedProblemIds.includes(id),
-    );
-    if (missingProblems.length > 0) {
-      throw new ApiError(400, "Solutions required for all exam problems");
-    }
+    if (exam.type === "DSA") {
+      const solutions = validatedData.solutions || {};
+      const examProblemIds = exam.problems.map((p) => p.problemId);
+      const submittedProblemIds = Object.keys(solutions);
 
-    // Check for extra problems not in exam
-    const extraProblems = submittedProblemIds.filter(
-      (id) => !examProblemIds.includes(id),
-    );
-    if (extraProblems.length > 0) {
-      throw new ApiError(400, "Solutions contain problems not in this exam");
+      // Verify all required problems have solutions
+      const missingProblems = examProblemIds.filter(
+        (id) => !submittedProblemIds.includes(id),
+      );
+      if (missingProblems.length > 0) {
+        throw new ApiError(400, "Solutions required for all exam problems");
+      }
+
+      // Check for extra problems not in exam
+      const extraProblems = submittedProblemIds.filter(
+        (id) => !examProblemIds.includes(id),
+      );
+      if (extraProblems.length > 0) {
+        throw new ApiError(400, "Solutions contain problems not in this exam");
+      }
+
+      normalizedSolutions = solutions;
+    } else {
+      if (!validatedData.ideWorkspace) {
+        throw new ApiError(400, "IDE workspace is required for IDE exams");
+      }
+
+      normalizedIdeWorkspace = validatedData.ideWorkspace;
     }
 
     // Create or update submission
@@ -905,10 +980,12 @@ export const submitExam = asyncHandler(async (req, res) => {
       create: {
         examId,
         studentId: req.user.userId,
-        solutions: validatedData.solutions,
+        solutions: normalizedSolutions,
+        ideWorkspace: normalizedIdeWorkspace,
       },
       update: {
-        solutions: validatedData.solutions,
+        solutions: normalizedSolutions,
+        ideWorkspace: normalizedIdeWorkspace,
         updatedAt: new Date(),
       },
       include: {
@@ -999,6 +1076,7 @@ export const startExam = asyncHandler(async (req, res) => {
       examId,
       studentId: req.user.userId,
       solutions: {},
+      ideWorkspace: null,
       startedAt: new Date(),
     },
     include: {
@@ -1097,6 +1175,7 @@ export const updateExamSubmission = asyncHandler(async (req, res) => {
       include: {
         exam: {
           select: {
+            type: true,
             startTime: true,
             duration: true,
           },
@@ -1119,6 +1198,23 @@ export const updateExamSubmission = asyncHandler(async (req, res) => {
       throw new ApiError(400, "Exam time limit has been exceeded");
     }
 
+    let normalizedSolutions = {};
+    let normalizedIdeWorkspace = null;
+
+    if (submission.exam.type === "DSA") {
+      if (!validatedData.solutions || Object.keys(validatedData.solutions).length === 0) {
+        throw new ApiError(400, "At least one solution is required for DSA exams");
+      }
+
+      normalizedSolutions = validatedData.solutions;
+    } else {
+      if (!validatedData.ideWorkspace) {
+        throw new ApiError(400, "IDE workspace is required for IDE exams");
+      }
+
+      normalizedIdeWorkspace = validatedData.ideWorkspace;
+    }
+
     // Update submission
     const updatedSubmission = await prisma.examSubmission.update({
       where: {
@@ -1128,7 +1224,8 @@ export const updateExamSubmission = asyncHandler(async (req, res) => {
         },
       },
       data: {
-        solutions: validatedData.solutions,
+        solutions: normalizedSolutions,
+        ideWorkspace: normalizedIdeWorkspace,
         updatedAt: new Date(),
       },
     });
@@ -1712,6 +1809,10 @@ export const saveDraft = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Assignment not found");
   }
 
+  if (assignment.type === "IDE") {
+    throw new ApiError(400, "Use IDE draft APIs for IDE assignments");
+  }
+
   const isTeacher = assignment.classroom.teacherId === req.user.userId;
 
   // Verify student enrollment (skip for teachers)
@@ -1783,6 +1884,10 @@ export const getDraft = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Assignment not found");
   }
 
+  if (assignment.type === "IDE") {
+    throw new ApiError(400, "Use IDE draft APIs for IDE assignments");
+  }
+
   const isTeacher = assignment.classroom.teacherId === req.user.userId;
 
   // Verify student enrollment (skip for teachers)
@@ -1836,6 +1941,10 @@ export const getAssignmentDrafts = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Assignment not found");
   }
 
+  if (assignment.type === "IDE") {
+    throw new ApiError(400, "Use IDE draft APIs for IDE assignments");
+  }
+
   const isTeacher = assignment.classroom.teacherId === req.user.userId;
 
   // Verify student enrollment (skip for teachers)
@@ -1881,6 +1990,10 @@ export const deleteAssignmentDrafts = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Assignment not found");
   }
 
+  if (assignment.type === "IDE") {
+    throw new ApiError(400, "Use IDE draft APIs for IDE assignments");
+  }
+
   const isTeacher = assignment.classroom.teacherId === req.user.userId;
 
   // Verify student enrollment (skip for teachers)
@@ -1899,6 +2012,119 @@ export const deleteAssignmentDrafts = asyncHandler(async (req, res) => {
   res
     .status(200)
     .json(new ApiResponse(200, null, "Drafts deleted successfully"));
+});
+
+/**
+ * @route   POST /api/classroom/assignment/:assignmentId/ide-draft
+ * @desc    Save/update IDE workspace draft for an assignment
+ * @access  Private (Enrolled students only)
+ */
+export const saveAssignmentIdeDraft = asyncHandler(async (req, res) => {
+  const { assignmentId } = req.params;
+  const { workspace } = req.body;
+
+  if (!req.user) {
+    throw new ApiError(401, "Authentication required");
+  }
+
+  if (!workspace) {
+    throw new ApiError(400, "Workspace is required");
+  }
+
+  const assignment = await prisma.assignment.findUnique({
+    where: { id: assignmentId },
+    include: {
+      classroom: { select: { id: true } },
+    },
+  });
+
+  if (!assignment) {
+    throw new ApiError(404, "Assignment not found");
+  }
+
+  if (assignment.type !== "IDE") {
+    throw new ApiError(400, "IDE draft is only available for IDE assignments");
+  }
+
+  await verifyStudentEnrollment(assignment.classroom.id, req.user.userId);
+
+  if (new Date() > assignment.deadline) {
+    throw new ApiError(400, "Assignment deadline has passed");
+  }
+
+  const draft = await prisma.assignmentIdeDraft.upsert({
+    where: {
+      assignmentId_studentId: {
+        assignmentId,
+        studentId: req.user.userId,
+      },
+    },
+    create: {
+      assignmentId,
+      studentId: req.user.userId,
+      workspace,
+    },
+    update: {
+      workspace,
+      updatedAt: new Date(),
+    },
+  });
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, { draft }, "IDE draft saved successfully"));
+});
+
+/**
+ * @route   GET /api/classroom/assignment/:assignmentId/ide-draft
+ * @desc    Get IDE workspace draft for an assignment
+ * @access  Private (Enrolled students only)
+ */
+export const getAssignmentIdeDraft = asyncHandler(async (req, res) => {
+  const { assignmentId } = req.params;
+
+  if (!req.user) {
+    throw new ApiError(401, "Authentication required");
+  }
+
+  const assignment = await prisma.assignment.findUnique({
+    where: { id: assignmentId },
+    include: {
+      classroom: { select: { id: true, teacherId: true } },
+    },
+  });
+
+  if (!assignment) {
+    throw new ApiError(404, "Assignment not found");
+  }
+
+  if (assignment.type !== "IDE") {
+    throw new ApiError(400, "IDE draft is only available for IDE assignments");
+  }
+
+  const isTeacher = assignment.classroom.teacherId === req.user.userId;
+  if (!isTeacher) {
+    await verifyStudentEnrollment(assignment.classroom.id, req.user.userId);
+  }
+
+  const draft = await prisma.assignmentIdeDraft.findUnique({
+    where: {
+      assignmentId_studentId: {
+        assignmentId,
+        studentId: req.user.userId,
+      },
+    },
+  });
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { draft },
+        draft ? "IDE draft retrieved successfully" : "No IDE draft found",
+      ),
+    );
 });
 
 /**

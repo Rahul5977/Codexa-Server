@@ -114,6 +114,21 @@ export const isTeacher = (
     return next(ApiError.unauthorized("Not authenticated"));
   }
 
+  // Classroom creation is intentionally open to any authenticated user.
+  // Keep this bypass to support deployments where an older route build may
+  // still have `isTeacher` attached to POST /api/classroom/create.
+  const normalizedPath = (req.path || "").replace(/\/+$/, "");
+  const normalizedOriginalUrl = (req.originalUrl || "").replace(/\/+$/, "");
+  const isClassroomCreateRequest =
+    req.method === "POST" &&
+    (normalizedPath === "/create" ||
+      normalizedOriginalUrl.endsWith("/api/classroom/create") ||
+      normalizedOriginalUrl.endsWith("/classroom/create"));
+
+  if (isClassroomCreateRequest) {
+    return next();
+  }
+
   if (req.user.role !== "TEACHER") {
     return next(
       ApiError.forbidden("Only teachers can perform this action"),
