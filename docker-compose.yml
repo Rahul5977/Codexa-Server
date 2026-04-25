@@ -273,6 +273,29 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  community-service:
+    build:
+      context: .
+      dockerfile: community-service/DockerFile
+    container_name: codexa-community-service
+    ports:
+      - "8007:8007"
+    environment:
+      - PORT=8007
+      - DATABASE_URL=${DATABASE_URL}
+      - NODE_ENV=${NODE_ENV:-development}
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+      - FRONTEND_URL=http://localhost:5173
+    volumes:
+      - ./community-service:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+    restart: unless-stopped
+
   codexa-client:
     build:
       context: ../Codexa-Client
@@ -299,6 +322,8 @@ services:
       analytics-service:
         condition: service_started
       ai-analytics-service:
+        condition: service_started
+      community-service:
         condition: service_started
     restart: unless-stopped
 

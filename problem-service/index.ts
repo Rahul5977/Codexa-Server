@@ -24,9 +24,17 @@ let isShuttingDown = false;
 
 async function startServer(): Promise<void> {
   try {
-    // Connect Kafka producer
+    // Connect Kafka producer (non-blocking in development)
     console.log("Connecting to Kafka...");
-    await kafkaProducer.connect();
+    try {
+      await kafkaProducer.connect();
+    } catch (error) {
+      if (NODE_ENV === "development") {
+        console.warn("⚠️  Kafka unavailable, starting problem-service without Kafka in development");
+      } else {
+        throw error;
+      }
+    }
 
     server = app.listen(PORT, () => {
       console.log(` Problem Service running on port ${PORT}`);
@@ -75,9 +83,16 @@ async function gracefulShutdown(signal: string): Promise<void> {
       console.log("✅ HTTP server closed");
     }
 
-    // Disconnect Kafka producer
+    // Disconnect Kafka producer if connected
     console.log("🔄 Disconnecting Kafka producer...");
-    await kafkaProducer.disconnect();
+    try {
+      await kafkaProducer.disconnect();
+    } catch (error) {
+      if (NODE_ENV !== "development") {
+        throw error;
+      }
+      console.warn("⚠️  Kafka disconnect skipped in development");
+    }
 
     // Disconnect from database
     console.log("🔄 Disconnecting from database...");

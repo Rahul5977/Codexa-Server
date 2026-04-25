@@ -298,7 +298,7 @@ export const generateAIAnalysis = async (
   // gemini-2.5-flash with thinkingBudget:0 disables thinking mode → fast responses (~5–15s)
   const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
   const model = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash",
+    model: "gemini-1.5-flash",
     generationConfig: {
       // @ts-ignore — thinkingConfig is a preview field not yet in the TS types
       thinkingConfig: { thinkingBudget: 0 },

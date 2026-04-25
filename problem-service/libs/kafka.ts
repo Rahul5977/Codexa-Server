@@ -37,7 +37,7 @@ class KafkaProducer {
     const brokers = process.env.KAFKA_BROKERS?.split(",") || ["localhost:9092"];
 
     this.kafka = new Kafka({
-      clientId: "auth-service",
+      clientId: "problem-service",
       brokers,
       logLevel:
         process.env.NODE_ENV === "development" ? logLevel.WARN : logLevel.ERROR,

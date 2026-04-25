@@ -2,11 +2,10 @@ import dotenv from "dotenv";
 dotenv.config({ override: true });
 
 import app from "./app.js";
-import { disconnectDB } from "./libs/prisma.js";
+import { connectDB, disconnectDB } from "./libs/prisma.js";
 import { kafkaProducer } from "./libs/kafka.js";
 import type { Server } from "http";
 
-// Verify critical environment variables are loaded
 if (!process.env.JWT_ACCESS_SECRET && !process.env.JWT_SECRET) {
   console.error("❌ ERROR: JWT_ACCESS_SECRET or JWT_SECRET not found in environment!");
   console.error("Please check your .env file in auth-service directory");
@@ -21,9 +20,46 @@ const NODE_ENV = process.env.NODE_ENV || "development";
 let server: Server;
 let isShuttingDown = false;
 
+const DB_STARTUP_RETRY_ATTEMPTS = 12;
+const DB_STARTUP_RETRY_DELAY_MS = 2000;
+
+function isTransientDbStartupError(error: unknown): boolean {
+  const message = String((error as any)?.message || error || "").toLowerCase();
+  return (
+    message.includes("not yet accepting connections") ||
+    message.includes("database system is in recovery mode") ||
+    message.includes("connection refused") ||
+    message.includes("econnrefused") ||
+    message.includes("timeout")
+  );
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function ensureDatabaseReady(): Promise<void> {
+  for (let attempt = 1; attempt <= DB_STARTUP_RETRY_ATTEMPTS; attempt++) {
+    try {
+      await connectDB();
+      return;
+    } catch (error) {
+      if (attempt === DB_STARTUP_RETRY_ATTEMPTS || !isTransientDbStartupError(error)) {
+        throw error;
+      }
+
+      console.warn(
+        `⚠️  Database not ready (attempt ${attempt}/${DB_STARTUP_RETRY_ATTEMPTS}). Retrying in ${DB_STARTUP_RETRY_DELAY_MS}ms...`,
+      );
+      await sleep(DB_STARTUP_RETRY_DELAY_MS);
+    }
+  }
+}
+
 async function startServer(): Promise<void> {
   try {
-    // Connect Kafka producer (optional in development)
+    await ensureDatabaseReady();
+
     console.log("Connecting to Kafka...");
     try {
       await kafkaProducer.connect();
@@ -42,7 +78,6 @@ async function startServer(): Promise<void> {
       console.log(` Health check: http://localhost:${PORT}/health`);
     });
 
-    // Handle server errors
     server.on("error", (error: NodeJS.ErrnoException) => {
       if (error.code === "EADDRINUSE") {
         console.error(`❌ Port ${PORT} is already in use`);
@@ -65,14 +100,12 @@ async function gracefulShutdown(signal: string): Promise<void> {
   isShuttingDown = true;
   console.log(`\n${signal} received. Starting graceful shutdown...`);
 
-  // Set a timeout for forced shutdown
   const forceShutdownTimeout = setTimeout(() => {
     console.error("⚠️  Forced shutdown after timeout (10s)");
     process.exit(1);
   }, 10000);
 
   try {
-    // Stop accepting new connections
     if (server) {
       await new Promise<void>((resolve, reject) => {
         server.close((err) => {
@@ -83,11 +116,9 @@ async function gracefulShutdown(signal: string): Promise<void> {
       console.log("✅ HTTP server closed");
     }
 
-    // Disconnect Kafka producer
     console.log("🔄 Disconnecting Kafka producer...");
     await kafkaProducer.disconnect();
 
-    // Disconnect from database
     console.log("🔄 Disconnecting from database...");
     await disconnectDB();
 
@@ -101,11 +132,9 @@ async function gracefulShutdown(signal: string): Promise<void> {
   }
 }
 
-// Handle shutdown signals
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 
-// Handle uncaught errors
 process.on("uncaughtException", (error) => {
   console.error("Uncaught Exception:", error);
   gracefulShutdown("UNCAUGHT_EXCEPTION");
@@ -116,5 +145,4 @@ process.on("unhandledRejection", (reason, promise) => {
   gracefulShutdown("UNHANDLED_REJECTION");
 });
 
-// Start the server
 startServer();

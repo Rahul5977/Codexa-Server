@@ -1,0 +1,30 @@
+{
+  "name": "community-service",
+  "version": "1.0.0",
+  "description": "Community learning rooms service",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "NODE_ENV=development nodemon --exec tsx index.ts",
+    "start": "NODE_ENV=production tsx index.ts",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.17.2",
+    "socket.io": "^4.8.3",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^24.10.1",
+    "nodemon": "^3.1.10",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

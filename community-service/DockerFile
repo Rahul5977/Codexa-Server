@@ -1,0 +1,11 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY community-service/package*.json ./
+RUN npm install
+
+COPY community-service .
+
+EXPOSE 8007
+CMD ["npm", "run", "dev"]

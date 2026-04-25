@@ -13,7 +13,7 @@ import { authenticate, isTeacher } from "../middleware/auth.middleware.js";
 const classroomRoutes = express.Router();
 
 // Create a new classroom (Teacher only)
-classroomRoutes.post("/create", authenticate, isTeacher, createClassroom);
+classroomRoutes.post("/create", authenticate, createClassroom);
 
 // Join a classroom using code (Student only)
 classroomRoutes.post("/join", authenticate, joinClassroom);
